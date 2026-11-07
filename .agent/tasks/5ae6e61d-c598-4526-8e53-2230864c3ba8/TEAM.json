@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "task_id": "5ae6e61d-c598-4526-8e53-2230864c3ba8",
+  "run_id": "a7425913-242d-416d-bf3e-13fa5c54addb",
+  "generation": 3,
+  "context_digest": "99cd20a21ccf4121b7f8dcd8766ae756ff0ef53b2eaf330040b1350c033c432f",
+  "class": "mechanical",
+  "risk": "low",
+  "confidence": "high",
+  "reason": "В labels.json единственное вхождение Draft относится к badge; button имеет значение Refresh. app.py читает подписи из labels.json. Требуется одна точная текстовая замена без изменений логики, зависимостей, миграций, прикладных данных или безопасности. BRIEF прямо исключает ручной UAT.",
+  "paths": [
+    "labels.json"
+  ],
+  "criteria": {
+    "AC1": "badge в labels.json равен Ready.",
+    "AC2": "Все остальные байты labels.json и исходные файлы неизменны; button остаётся Refresh."
+  },
+  "verification": [
+    "scripts/agent-check --phase quick",
+    "git diff 2561257509ca69974ef162cff07d264a98b5553b -- labels.json"
+  ],
+  "needs_uat": false,
+  "members": [
+    {
+      "role": "builder",
+      "scope": "Выполнить единственную точную замену Draft → Ready в labels.json и quick-проверку."
+    }
+  ],
+  "edits": [
+    {
+      "path": "labels.json",
+      "before": "Draft",
+      "after": "Ready"
+    }
+  ]
+}
