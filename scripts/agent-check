@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Entrypoint for the separately installed synthetic canary runtime."""
+import os
+from pathlib import Path
+import sys
+runtime = Path(os.environ.get("PIPELINE_CANARY_RUNTIME", "/tmp/pipeline-v3-canary/runtime")).resolve()
+if not (runtime / "dev_pipeline").is_dir():
+    raise SystemExit("Provision the canary runtime or set PIPELINE_CANARY_RUNTIME")
+sys.path.insert(0, str(runtime))
+from dev_pipeline.check import main
+raise SystemExit(main())

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "quick_checks": [
+    {
+      "name": "syntax",
+      "argv": [
+        "python3",
+        "-m",
+        "py_compile",
+        "app.py",
+        "api.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30
+    }
+  ],
+  "checks": [
+    {
+      "name": "canary-tests",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 60
+    }
+  ],
+  "preview": {
+    "argv": [
+      "python3",
+      "app.py",
+      "--host",
+      "{host}",
+      "--port",
+      "{port}"
+    ],
+    "public_url": "https://167.104.106.37/canary-preview/{port}/",
+    "health_path": "/health",
+    "ttl_seconds": 3600,
+    "port_min": 18390,
+    "port_max": 18399
+  }
+}
