@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "task_id": "5ae6e61d-c598-4526-8e53-2230864c3ba8",
-  "run_id": "a7425913-242d-416d-bf3e-13fa5c54addb",
-  "generation": 3,
-  "context_digest": "99cd20a21ccf4121b7f8dcd8766ae756ff0ef53b2eaf330040b1350c033c432f",
   "class": "mechanical",
   "risk": "low",
   "confidence": "high",
