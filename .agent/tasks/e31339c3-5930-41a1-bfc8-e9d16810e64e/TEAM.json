@@ -3,7 +3,7 @@
   "class": "feature",
   "risk": "high",
   "confidence": "high",
-  "reason": "Полный маршрут: app.py содержит только GET и ThreadingHTTPServer; api.py возвращает константы без хранилища; tests/test_api.py проверяет только уникальность ID и свежесть значений. Нужны новая логика, SQLite, транзакции и миграция. Точный HTTP-контракт и миграцию определяет planner; неопределённость исключает fast path.",
+  "reason": "Полный маршрут: app.py содержит только GET и ThreadingHTTPServer; api.py возвращает константы без хранилища; tests/test_api.py проверяет только уникальность ID и свежесть значений. Нужны новая логика, SQLite, транзакции и миграция. Точный HTTP-контракт и миграцию определяет planner; неопределённость исключает fast path. Основания: app.py: Handler реализует только do_GET; сервер ThreadingHTTPServer допускает конкурентные запросы. api.py: list_items возвращает Notebook=3 и Pencil=5; SQLite и операции записи отсутствуют. tests/test_api.py: текущие проверки охватывают уникальность ID, неотрицательность начальных остатков и свежесть значений; гонки, rollback и идемпотентность не покрыты. Источник требований: .agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a.json.",
   "paths": [
     "app.py",
     "api.py",
@@ -40,17 +40,5 @@
       "role": "reviewer",
       "scope": "Проверить AC, изменения и сохранённые контроллером результаты Verify."
     }
-  ],
-  "evidence": [
-    "app.py: Handler реализует только do_GET; сервер ThreadingHTTPServer допускает конкурентные запросы.",
-    "api.py: list_items возвращает Notebook=3 и Pencil=5; SQLite и операции записи отсутствуют.",
-    "tests/test_api.py: текущие проверки охватывают уникальность ID, неотрицательность начальных остатков и свежесть значений; гонки, rollback и идемпотентность не покрыты.",
-    "README.md: локальный синтетический сервер; текущий контракт BRIEF требует SQLite, миграцию и согласование полного плана.",
-    ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a.json",
-    ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/b1689e7f3be7f3a01fd541b6166b42bba006c56d3a229a131f737d01666013c9.json"
-  ],
-  "task_id": "e31339c3-5930-41a1-bfc8-e9d16810e64e",
-  "run_id": "f4e9ab6b-0e7a-4746-a036-c496382236bc",
-  "generation": 2,
-  "context_digest": "b90e0ee16f0672b628d977c6813457fe30e19670eb574b82c257f7f91824d837"
+  ]
 }
