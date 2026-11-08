@@ -1,0 +1,264 @@
+{
+  "task_id": "e31339c3-5930-41a1-bfc8-e9d16810e64e",
+  "run_id": "a383fea1-93f2-4d4d-8ec9-85328f80f608",
+  "generation": 8,
+  "context_digest": "99ee1c7e95a2a4631f474b3595766fec9cc0fd7d7c7b30fc2feb958d4011c545",
+  "session_id": "87a3da11-dc03-4e35-95f2-7fea6b5d9759",
+  "base": "2561257509ca69974ef162cff07d264a98b5553b",
+  "reviewed_head": "3da15a0d08e771d9ed24378d43cbef1e336ae264",
+  "kind": "independent static review of frozen plan; input validation only; no application tests or new runtime probes",
+  "sources": {
+    "BRIEF.md": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a.json",
+      "context_object_digest": "5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a",
+      "content_bytes": 1420,
+      "content_sha256": "b8669024552576035d97ce60bb4fbee1c46645aa9df565e3373c26fb15f543f8",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "DESIGN.md": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/d75ad0163b2b7a509cab2345b02760ec9d74a78b9af6353cc1a1d5d952565f49.json",
+      "context_object_digest": "d75ad0163b2b7a509cab2345b02760ec9d74a78b9af6353cc1a1d5d952565f49",
+      "content_bytes": 1920,
+      "content_sha256": "eaacb52619cb67ccbd3c456620848e7527c55c317b13868ecdb9acc29de9d372",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "PLAN.json": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/91406abe1a9d0a9a9369a4131e01674285d1cb0b3d92be617519b91fa2ffbcbd.json",
+      "context_object_digest": "91406abe1a9d0a9a9369a4131e01674285d1cb0b3d92be617519b91fa2ffbcbd",
+      "content_bytes": 18647,
+      "content_sha256": "24b81faf01204436b478460db63b47412951c49223f82f146aa8d17b08f1f71b",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "PLAN.md": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/2330979ce06e47eed7f1415b95f15a15c33143afe9cb9da06e1f20d9b9f63f50.json",
+      "context_object_digest": "2330979ce06e47eed7f1415b95f15a15c33143afe9cb9da06e1f20d9b9f63f50",
+      "content_bytes": 36042,
+      "content_sha256": "c7b8626233ec6e3e8ed7c22f69ba9d451f931c30e661e81005da3481f296e791",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "SPEC.md": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/8f211e19aad978ae5daf689fe867a2a8ba92f43cea713f7be8c192748344a58a.json",
+      "context_object_digest": "8f211e19aad978ae5daf689fe867a2a8ba92f43cea713f7be8c192748344a58a",
+      "content_bytes": 27413,
+      "content_sha256": "2ef62ad13bbd45cdd2705b6f3d23b262b1b7e234a0a3b2fb9252ba4fca1c019a",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "TEAM.json": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/18ec07883ac18ddae8a96a4a997b4aab6af1aef700aef067741e31b79a2cbefd.json",
+      "context_object_digest": "18ec07883ac18ddae8a96a4a997b4aab6af1aef700aef067741e31b79a2cbefd",
+      "content_bytes": 3681,
+      "content_sha256": "72c498ad07860f4a6faed5b88c5236b9a762723753d85788e8f094567c0beb67",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "checks": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/05bb8111e828d918fe554caa6f6063bcf7cc10eba25c771b9ab37142c241e8fd.json",
+      "context_object_digest": "05bb8111e828d918fe554caa6f6063bcf7cc10eba25c771b9ab37142c241e8fd",
+      "content_bytes": 4,
+      "content_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "bytes_match": true,
+      "tracked_matches": null
+    },
+    "design": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/6e7491e1bf0a05cae54b8b2ad04c0b37deae2e7d13010f3c6fbe5814353f7d8b.json",
+      "context_object_digest": "6e7491e1bf0a05cae54b8b2ad04c0b37deae2e7d13010f3c6fbe5814353f7d8b",
+      "content_bytes": 18,
+      "content_sha256": "8376431f05ed0574aa914db9f36153ed5837a067d6d3450847c49d89b37ad1bf",
+      "bytes_match": true,
+      "tracked_matches": null
+    },
+    "design.json": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/faf24a556c60a0cada191e35df9a1b620b32fbe1f1e31c3cbf8c7d65c3ceb294.json",
+      "context_object_digest": "faf24a556c60a0cada191e35df9a1b620b32fbe1f1e31c3cbf8c7d65c3ceb294",
+      "content_bytes": 952,
+      "content_sha256": "4cdae1c13bbce81eb37c191182aea4fcb9c3e571d689c8cd9765b4b5502293a9",
+      "bytes_match": true,
+      "tracked_matches": true
+    },
+    "feedback": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/2c465fa4530fd472fd6bb9a7e599023dd1c8fef7e78d83034388c247138b795c.json",
+      "context_object_digest": "2c465fa4530fd472fd6bb9a7e599023dd1c8fef7e78d83034388c247138b795c",
+      "content_bytes": 60,
+      "content_sha256": "0c1c44f05b6ed641e72ed587bc334ae9f2f535a0036b27ffb0b5c77540a2b3c7",
+      "bytes_match": true,
+      "tracked_matches": null
+    },
+    "integration_base": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/23ddc7c2f1255bcb4fc4f7667977c86590dfa8ac2d091bbb9be28541b408f3dc.json",
+      "context_object_digest": "23ddc7c2f1255bcb4fc4f7667977c86590dfa8ac2d091bbb9be28541b408f3dc",
+      "content_bytes": 2,
+      "content_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126",
+      "bytes_match": true,
+      "tracked_matches": null
+    },
+    "owner_answers": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/2bb76b98566df616180a3a57315377a8707bfd55d000d84b849aba32e373683d.json",
+      "context_object_digest": "2bb76b98566df616180a3a57315377a8707bfd55d000d84b849aba32e373683d",
+      "content_bytes": 3987,
+      "content_sha256": "6a964bf04b995ddb9795676e79580797330a83b5f77182f01f17c7f447f3cab8",
+      "bytes_match": true,
+      "tracked_matches": null
+    },
+    "review": {
+      "path": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/05bb8111e828d918fe554caa6f6063bcf7cc10eba25c771b9ab37142c241e8fd.json",
+      "context_object_digest": "05bb8111e828d918fe554caa6f6063bcf7cc10eba25c771b9ab37142c241e8fd",
+      "content_bytes": 4,
+      "content_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "bytes_match": true,
+      "tracked_matches": null
+    }
+  },
+  "input_validation": {
+    "all_content_sizes_match": true,
+    "frozen_equals_tracked": [
+      "BRIEF.md",
+      "SPEC.md",
+      "PLAN.md",
+      "PLAN.json"
+    ],
+    "requirements": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5",
+      "R6",
+      "R7",
+      "R8"
+    ],
+    "criteria": [
+      "AC1",
+      "AC2",
+      "AC3",
+      "AC4",
+      "AC5",
+      "AC6",
+      "AC7",
+      "AC8",
+      "AC9",
+      "AC10",
+      "AC11",
+      "AC12"
+    ],
+    "steps": [
+      "S1",
+      "S2",
+      "S3",
+      "S4",
+      "S5",
+      "S6"
+    ],
+    "checks_in_request": null
+  },
+  "previous_findings": [
+    {
+      "id": "D-F1",
+      "status": "resolved_in_plan",
+      "anchors": [
+        "SPEC.md content:28,33,101,126",
+        "PLAN.md content:38-56,175-178,260"
+      ],
+      "verification_planned": [
+        "test_ac8_newer_wal_schema_is_refused_unchanged",
+        "test_ac8_version_recheck_under_migration_lock",
+        "test_ac8_v1_wal_database_is_converted_to_delete"
+      ]
+    },
+    {
+      "id": "D-F2",
+      "status": "resolved_in_plan",
+      "anchors": [
+        "SPEC.md content:38,43,121",
+        "PLAN.md content:117,125-144,210-211,261"
+      ],
+      "verification_planned": [
+        "test_ac3_short_body_eof_rejected_without_write",
+        "test_ac3_stalled_body_times_out_without_write"
+      ]
+    },
+    {
+      "id": "D-F3",
+      "status": "resolved_in_plan",
+      "anchors": [
+        "SPEC.md content:43,121",
+        "PLAN.md content:104-115,208-209,262"
+      ],
+      "verification_planned": [
+        "test_ac3_content_length_parsing",
+        "test_ac3_invalid_requests_rejected_without_write"
+      ]
+    },
+    {
+      "id": "D-F4",
+      "status": "resolved_in_plan",
+      "anchors": [
+        "SPEC.md content:39,120-121",
+        "PLAN.md content:57-63,164-165,206,209,263"
+      ],
+      "verification_planned": [
+        "test_ac2_unicode_keys_accepted",
+        "test_ac3_invalid_payloads_rejected_without_write",
+        "test_ac2_unicode_keys_round_trip",
+        "test_ac3_invalid_requests_rejected_without_write"
+      ]
+    }
+  ],
+  "review": [
+    {
+      "area": "Требования и границы",
+      "anchors": [
+        "SPEC.md content:16-23,41-42,84-91,95-103,134",
+        "PLAN.json content:5-74"
+      ],
+      "conclusion": "R1-R8 отражены в AC1-AC12 и S1-S6. quantity означает свободный остаток; отмена и истечение исключены отвеченным вопросом владельца. Новых вопросов владельцу нет."
+    },
+    {
+      "area": "Конкурентность и повтор",
+      "anchors": [
+        "SPEC.md content:29-32,35-36,97,124,128",
+        "PLAN.md content:65-92,180,182-187,214,217"
+      ],
+      "conclusion": "Соединение на операцию; BEGIN IMMEDIATE до чтения ключа; UPDATE и INSERT в одной транзакции; условный UPDATE, UNIQUE и CHECK согласованы. Повтор проверяется до остатка, ответ после COMMIT. Гонки разных/одинаковых ключей запланированы; отсутствие отдельной процессной гонки явно ограничено A3."
+    },
+    {
+      "area": "Миграция, rollback, восстановление",
+      "anchors": [
+        "SPEC.md content:28,33-34,42,101,125-128",
+        "PLAN.md content:38-56,172-187,215-217,238-254"
+      ],
+      "conclusion": "Проверка будущей схемы предшествует смене журнала и повторяется под блокировкой; миграция и seed атомарны. Запланированы триггерный сбой после UPDATE, рестарт и аварийный выход до/после COMMIT. Остаточное окно между версиями ограничено A8 и запретом одновременной работы двух релизов D16."
+    },
+    {
+      "area": "HTTP и проверка входа",
+      "anchors": [
+        "SPEC.md content:38-43,45-66,120-123",
+        "PLAN.md content:57-64,100-145,203-218"
+      ],
+      "conclusion": "Ограничены длина и чтение тела; EOF/тайм-аут и неправильный Unicode отвергаются до reserve. Строгие типы, дубликаты JSON и Content-Length, ошибки маршрута, отказ без записи и безопасный повтор имеют сценарии проверки."
+    },
+    {
+      "area": "Проверяемость и handoff",
+      "anchors": [
+        "SPEC.md content:84-91,98,115-130",
+        "PLAN.md content:149-236",
+        "PLAN.json content:107-235"
+      ],
+      "conclusion": "Критерии связаны с сервисными и HTTP-тестами, quick и проверкой документации. Код остаётся в app.py/api.py, политика проверок не меняется; полный набор принадлежит Verify. Совместимость и пределы времени являются будущими проверками, не измерениями этого Debate."
+    }
+  ],
+  "verdict": "clean",
+  "findings": [],
+  "application_tests_run": [],
+  "quick_run": false,
+  "full_suite_run": false,
+  "limitations": [
+    "Проверка архитектурного плана не подтверждает будущую реализацию.",
+    "Сохранённые SPEC_EVIDENCE.json относятся к run c865c4ed-6cba-49a8-92c5-08bc9625a7df / generation 7; они прочитаны как обоснование архитектора, не выданы за пробы текущего запуска.",
+    "A3/A4/A7/A8 остаются явно указанными границами плана."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+ "version": 1,
+ "required": false,
+ "brief": "Визуальный дизайн не требуется: UI, HTML-страница / и labels.json не меняются; задача добавляет только JSON API и хранилище SQLite. Архитектурный контракт описан в SPEC.md §3–4 и PLAN.md.",
+ "reuse": [
+  "app.py: существующий Handler и ThreadingHTTPServer (через подкласс InventoryServer), маршруты /, /health без изменений",
+  "api.py: модуль бизнес-логики и контракт GET /api/items (формат id/name/quantity)",
+  "стандартная библиотека Python: sqlite3, http.server, json, unittest"
+ ],
+ "reason": "Владелец: UI вне области и UAT не нужен (BRIEF); наблюдаемое поведение — только HTTP JSON, проверяется автотестами."
+}
