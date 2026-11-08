@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "class": "mechanical",
+  "risk": "low",
+  "confidence": "high",
+  "reason": "Область: одна уникальная текстовая замена Refresh → Reload items в labels.json (button); badge остается Draft. app.py читает labels[\"button\"] и выводит его в существующей кнопке; изменения логики, зависимостей, миграций, данных и безопасности не нужны. Поэтому выбран сокращенный маршрут builder/reviewer. Ручной UAT обязателен отдельно и не заменяется автоматическими проверками. Источники: labels.json, app.py; .agent/runtime/8d56cbb8-9e50-4c08-baf2-ce4d14ebb2ca/context/eff0aa81b6267df974a9ed1cd10832922fffb33c4b63803bccba80a8d0bde507.json; отзыв об оценке области и команде: .agent/runtime/8d56cbb8-9e50-4c08-baf2-ce4d14ebb2ca/context/1061e58ba9e1f58b697c140e1250dad27eaed1ea298e40384ba08496c8be87cf.json.",
+  "paths": [
+    "labels.json"
+  ],
+  "criteria": {
+    "AC1": "В labels.json значение button равно Reload items.",
+    "AC2": "Остальные значения labels.json и исходники, включая стили и логику, не изменены.",
+    "AC3": "После автоматических проверок контроллер предоставляет владельцу dev-preview; владелец независимо подтверждает видимый текст Reload items. До подтверждения UAT не завершен."
+  },
+  "verification": [
+    "scripts/agent-check --phase quick",
+    "git diff 57923dcefab1b47115a9bab26b4a73b8e879f19b -- labels.json app.py",
+    "python3 -c 'import json; from pathlib import Path; assert json.loads(Path(\"labels.json\").read_text()) == {\"badge\":\"Draft\",\"button\":\"Reload items\"}'"
+  ],
+  "needs_uat": true,
+  "members": [
+    {
+      "role": "builder",
+      "scope": "Единственная точная замена в labels.json; commit и quick-проверка."
+    },
+    {
+      "role": "reviewer",
+      "scope": "Проверить точность замены, отсутствие иных изменений приложения и актуальные сохраненные проверки; сохранить обязательность UAT."
+    }
+  ],
+  "edits": [
+    {
+      "path": "labels.json",
+      "before": "Refresh",
+      "after": "Reload items"
+    }
+  ]
+}
