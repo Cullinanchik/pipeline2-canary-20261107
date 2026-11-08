@@ -7,7 +7,8 @@
     "R4": "Повтор имени, пустое, отрицательное, дробное, слишком большое или иное нечисловое значение дают 400 application/json с телом {\"error\": {\"code\", \"parameter\": \"min_quantity\", \"message\"}} по таблице SPEC.md §5; сырое значение не возвращается; соединение не рвётся.",
     "R5": "Посторонние и опечатанные параметры игнорируются (ответ владельца unknown_params); имя min_quantity чувствительно к регистру; посторонние параметры рядом с min_quantity не мешают фильтру.",
     "R6": "Данные list_items(), свежесть возвращаемых значений, UI '/', /health, 404 (включая /api/items/) и labels.json не меняются; min_quantity действует только на /api/items.",
-    "R7": "Добавлены автотесты чистых функций, HTTP-тесты на реальном ThreadingHTTPServer и проба совместимости parse_qs; политика проверок (.agent/project.json, CI) не меняется."
+    "R7": "Добавлены автотесты чистых функций (filter_items, parse_min_quantity, MinQuantityError, redact_request_line), HTTP-тесты на реальном ThreadingHTTPServer и проба совместимости parse_qs; политика проверок (.agent/project.json, CI) не меняется.",
+    "R8": "Строка журнала доступа Handler (log_request из send_response для 200, 400, 404) содержит метод и путь, но ничего после первого '?' или '#' строки запроса; вместо отброшенной части — пометка ' [query redacted]'; без '?' и '#' строка прежняя (\"GET /api/items HTTP/1.1\" 200 -)."
   },
   "criteria": {
     "AC1": {
@@ -52,8 +53,13 @@
     },
     "AC9": {
       "requirement": "R7",
-      "expected": "Есть классы InventoryTests, FilterItemsTests, ParseMinQuantityTests, CatalogHTTPTests и проба test_parse_qs_semantics_probe; quick-проверка проходит у исполнителя; полный набор canary-tests проходит только в Verify контроллера.",
+      "expected": "Есть классы InventoryTests, FilterItemsTests, ParseMinQuantityTests, CatalogHTTPTests, RedactRequestLineTests, RequestLogHTTPTests и проба test_parse_qs_semantics_probe; quick-проверка проходит у исполнителя; полный набор canary-tests проходит только в Verify контроллера.",
       "verification": "scripts/agent-check --phase quick && python3 -m py_compile tests/test_api.py && python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests.test_parse_qs_semantics_probe"
+    },
+    "AC10": {
+      "requirement": "R8",
+      "expected": "redact_request_line даёт точные результаты для 7 строк PLAN.md S3; прямой Handler.log_request с HTTPStatus.BAD_REQUEST/200/'-' пишет '\"GET /api/items [query redacted]\" <400|200|-> -' без min_quantity и пробы; настоящий Handler на сервере с перехватом stderr для 5 target (400 synthetic_probe, 400 'x'*5000, 200 '0'*64+'4'&note=synthetic_probe, 200 /health, 404 /missing) пишет '\"GET <путь> [query redacted]\" <статус> -' без min_quantity и пробных значений в журнале и теле; /api/items без query → '\"GET /api/items HTTP/1.1\" 200 -'.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k RedactRequestLineTests -k RequestLogHTTPTests"
     }
   },
   "decisions": [
@@ -66,51 +72,98 @@
     "D7: app.py получает status=200 по умолчанию; ветка /api/items ставит 400 при ошибке; общий путь заголовков, ветки '/', /health и 404 не меняются.",
     "D8: тексты ошибок на английском, машинные коды стабильны (ответ владельца error_language, 2026-11-08).",
     "D9: посторонние параметры игнорируются (ответ владельца unknown_params, 2026-11-08).",
-    "D10: HTTP-тесты на ThreadingHTTPServer(('127.0.0.1', 0)) в фоновом потоке через http.client с таймаутом 5 с; тихий обработчик только в тестах.",
+    "D10: HTTP-тесты на ThreadingHTTPServer(('127.0.0.1', 0)) в фоновом потоке через http.client с таймаутом 5 с; QuietHandler (заглушка log_message) только в CatalogHTTPTests; RequestLogHTTPTests — настоящий Handler с contextlib.redirect_stderr, журнал пишется до отправки ответа, гонки нет.",
     "D11: политика проверок не меняется: .agent/project.json и CI не трогаются, project_policy_change не нужен.",
-    "D12: откат — git revert коммита реализации; данных, миграций и состояния нет."
+    "D12: откат — git revert коммита реализации; данных, миграций и состояния нет.",
+    "D13: журнал доступа без query (R8, C5, ответ на F1): чистая функция app.redact_request_line обрезает строку запроса на первом '?' или '#' и добавляет ' [query redacted]'; Handler.log_request — копия стандартного с этой функцией; log_message/log_error не переопределяются; отклонены отключение журнала, вырезание только min_quantity, ручной журнал в do_GET и переопределение send_error для неверных строк запроса (A5)."
   ],
   "risks": [
     "Неверная классификация экзотических строк (Unicode-цифры, '+', '\\n', '_', длинные нули) — закрыто таблицей 32 случаев AC5 и эталонным алгоритмом, сверенным на 47 случаях на CPython 3.12.3.",
     "Иная семантика parse_qs в версии Python на CI ubuntu-latest (не закреплена, A1) — закрыто пробой test_parse_qs_semantics_probe, поддерживается CPython >= 3.10.",
     "Необработанное исключение в do_GET рвёт соединение без ответа (подтверждено пробой) — все ошибки разбора превращаются в MinQuantityError → 400.",
     "Зависание HTTP-тестов или конфликт портов — эфемерный порт 127.0.0.1, таймаут клиента 5 с, явные shutdown/server_close/join.",
-    "Регрессия ответа каталога без фильтра — закрыто байтовым равенством AC1 и литералом данных AC8."
+    "Регрессия ответа каталога без фильтра — закрыто байтовым равенством AC1 и литералом данных AC8.",
+    "Утечка query в журнал доступа (F1 оппонента) — закрыто redact_request_line и Handler.log_request (D13) и тестами настоящего Handler с перехватом stderr при 200/400/404 (AC10); остаток — синтаксически неверная строка запроса HTTP, которую stdlib отклоняет до do_GET (A5).",
+    "Формат журнала доступа меняется для запросов с query на всех маршрутах — осознанно по C5; без query формат прежний (AC10); внешних разборщиков журнала нет."
   ],
   "steps": [
     {
       "id": "S1",
-      "files": ["api.py"],
+      "files": [
+        "api.py"
+      ],
       "change": "Добавить импорт re и parse_qs, константы MIN_QUANTITY_PARAM, MAX_MIN_QUANTITY, MIN_QUANTITY_ERRORS, регулярные выражения _DIGITS/_NEGATIVE/_FRACTION, класс MinQuantityError, функции parse_min_quantity и filter_items ровно по эталону PLAN.md S1; list_items() оставить байт в байт.",
-      "criteria": ["AC2", "AC4", "AC5", "AC7", "AC8"],
+      "criteria": [
+        "AC2",
+        "AC4",
+        "AC5",
+        "AC7",
+        "AC8"
+      ],
       "depends_on": [],
       "verification": "python3 -m py_compile api.py"
     },
     {
       "id": "S2",
-      "files": ["app.py"],
-      "change": "Импорт MinQuantityError, filter_items, parse_min_quantity; parts = urlsplit(self.path), status = 200; ветка /api/items разбирает parts.query, при MinQuantityError отдаёт 400 с error.to_dict(), иначе фильтрует при заданном N; send_response(status). Остальные ветки не менять (PLAN.md S2).",
-      "criteria": ["AC1", "AC3", "AC6", "AC7", "AC8"],
-      "depends_on": ["S1"],
+      "files": [
+        "app.py"
+      ],
+      "change": "Привести app.py ровно к эталону PLAN.md S2: импорты HTTPStatus, re и MinQuantityError, filter_items, parse_min_quantity; _QUERY_OR_FRAGMENT и redact_request_line; Handler.log_request с redact_request_line(self.requestline); parts = urlsplit(self.path), status = 200; ветка /api/items разбирает parts.query, при MinQuantityError отдаёт 400 с error.to_dict(), иначе фильтрует при заданном N; send_response(status). Остальные строки не менять.",
+      "criteria": [
+        "AC1",
+        "AC3",
+        "AC6",
+        "AC7",
+        "AC8",
+        "AC10"
+      ],
+      "depends_on": [
+        "S1"
+      ],
       "verification": "scripts/agent-check --phase quick"
     },
     {
       "id": "S3",
-      "files": ["tests/test_api.py"],
-      "change": "Сохранить InventoryTests и добавить test_catalog_data_unchanged; добавить FilterItemsTests, ParseMinQuantityTests (включая 32 случая ошибок и test_parse_qs_semantics_probe) и CatalogHTTPTests с QuietHandler на эфемерном порту — ровно по таблицам PLAN.md S3.",
-      "criteria": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9"],
-      "depends_on": ["S1", "S2"],
-      "verification": "python3 -m py_compile tests/test_api.py && python3 -m unittest discover -s tests -p test_api.py -k FilterItemsTests && python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests && python3 -m unittest discover -s tests -p test_api.py -k HTTP && python3 -m unittest discover -s tests -p test_api.py -k InventoryTests"
+      "files": [
+        "tests/test_api.py"
+      ],
+      "change": "Сохранить InventoryTests и добавить test_catalog_data_unchanged; добавить FilterItemsTests, ParseMinQuantityTests (32 случая ошибок и test_parse_qs_semantics_probe), CatalogHTTPTests с QuietHandler, RedactRequestLineTests (7 строк и прямой log_request) и RequestLogHTTPTests (настоящий Handler, перехват stderr, 5 target с query и один без) — ровно по таблицам PLAN.md S3.",
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC5",
+        "AC6",
+        "AC7",
+        "AC8",
+        "AC9",
+        "AC10"
+      ],
+      "depends_on": [
+        "S1",
+        "S2"
+      ],
+      "verification": "python3 -m py_compile tests/test_api.py && python3 -m unittest discover -s tests -p test_api.py -k FilterItemsTests && python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests && python3 -m unittest discover -s tests -p test_api.py -k RedactRequestLineTests && python3 -m unittest discover -s tests -p test_api.py -k HTTP && python3 -m unittest discover -s tests -p test_api.py -k InventoryTests"
     },
     {
       "id": "S4",
-      "files": ["api.py", "app.py", "tests/test_api.py"],
+      "files": [
+        "api.py",
+        "app.py",
+        "tests/test_api.py"
+      ],
       "change": "Закоммитить три файла (заголовок «Canary 02 · Фильтр min_quantity для каталога»), после коммита выполнить quick-проверку, убедиться в неизменности защищённых файлов и сформировать передачу scripts/pipeline-report; без push, merge и полного набора.",
-      "criteria": ["AC8", "AC9"],
-      "depends_on": ["S3"],
+      "criteria": [
+        "AC8",
+        "AC9"
+      ],
+      "depends_on": [
+        "S3"
+      ],
       "verification": "scripts/agent-check --phase quick && git diff --exit-code 57923dcefab1b47115a9bab26b4a73b8e879f19b -- labels.json README.md .agent/project.json .github notes"
     }
   ],
   "needs_uat": false,
-  "uat_reason": "Меняется только JSON API без экранов; всё видимое пользователю поведение (200, фильтр, 400 с текстом) полностью проверяется автотестами HTTP и чистых функций, brief прямо исключает UAT."
+  "uat_reason": "Меняется только JSON API и строка журнала сервера, экранов нет; всё видимое пользователю поведение (200, фильтр, 400 с текстом) и журнал полностью проверяются автотестами HTTP и чистых функций, brief прямо исключает UAT."
 }

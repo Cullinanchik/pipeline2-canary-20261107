@@ -4,6 +4,7 @@
   "brief": "Визуальный дизайн не нужен: меняется только JSON API GET /api/items (фильтр min_quantity и ответ 400). Страница '/', labels.json и остальные маршруты не меняются; brief запрещает менять UI.",
   "reuse": [
     "app.py:Handler.do_GET — существующая маршрутизация и общий путь отправки Content-Type/Content-Length",
+    "http.server.BaseHTTPRequestHandler.log_message/log_error — стандартный журнал сохраняется; переопределён только log_request с обрезкой query через app.redact_request_line",
     "api.py:list_items — неизменный источник синтетических данных",
     "urllib.parse.parse_qs и urlsplit — стандартный разбор query",
     "http.server.ThreadingHTTPServer и http.client — стандартный сервер и клиент для HTTP-тестов",
