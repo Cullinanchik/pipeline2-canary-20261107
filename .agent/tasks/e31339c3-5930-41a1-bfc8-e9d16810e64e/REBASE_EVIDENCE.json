@@ -1,9 +1,12 @@
 {
   "task_id": "e31339c3-5930-41a1-bfc8-e9d16810e64e",
-  "run_id": "5460d70a-f9e5-4c92-ac47-0ec1a5589063",
-  "generation": 19,
-  "context_digest": "9ab55b35c3a436d4eff979d29a9c8f9bab5d6bfe5fbe4a88fe09e1b3e326bea1",
-  "integration_base": "5f22a42dd5e8cbf17890d7444c16ff87186cb09a",
+  "run_id": "9900b70a-74ee-4fe5-a9d7-b3e26a320dc5",
+  "generation": 30,
+  "context_digest": "cad066a22f4b993225bf0e0dac950dd4788864e6cbc7865fbd76ce86191bc574",
+  "integration_base": "fdbf1e4203a8770c7148668e14de48a79b65dad5",
   "feedback_source": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/80a5bc05e7d67a11eb7ecaa9e91bf0dc8aa641e9787eefab5aa0a4b71da2ff57.json",
-  "result": "Rebase completed without conflicts; application, tests and README unchanged from 5f16bf0; labels.json matches integration_base. Fresh controller Verify required."
+  "integration_base_source": ".agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/65379884b5c7ede7758dce36696e68f57cd688930ee0613cb691f2e16f886b57.json",
+  "previous_head": "f06343a4086d4d4b720d31bfdd7fb4e3921bed7b",
+  "rebased_head": "db7c19694e5d262072e9b7a300edce3f41e4686e",
+  "result": "Fetched origin and rebased onto the exact pinned integration_base without conflicts. git range-diff confirms all 15 task patches unchanged. Fresh controller Verify required."
 }
