@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "requirements": {
+    "R1": "Без имени min_quantity в query GET /api/items отвечает 200 application/json, тело байт в байт равно json.dumps(list_items()).encode(); то же для /api/items? и для query только из посторонних параметров.",
+    "R2": "При допустимом целом N ответ содержит только товары с quantity >= N (граница включена), порядок и поля сохраняются; N=0 возвращает все, N выше максимума — [] с HTTP 200.",
+    "R3": "Допустимая запись N после URL-декодирования — только ASCII-цифры 0-9 (минимум одна), ведущие нули допустимы, диапазон 0..9223372036854775807; без округления, strip и знака +.",
+    "R4": "Повтор имени, пустое, отрицательное, дробное, слишком большое или иное нечисловое значение дают 400 application/json с телом {\"error\": {\"code\", \"parameter\": \"min_quantity\", \"message\"}} по таблице SPEC.md §5; сырое значение не возвращается; соединение не рвётся.",
+    "R5": "Посторонние и опечатанные параметры игнорируются (ответ владельца unknown_params); имя min_quantity чувствительно к регистру; посторонние параметры рядом с min_quantity не мешают фильтру.",
+    "R6": "Данные list_items(), свежесть возвращаемых значений, UI '/', /health, 404 (включая /api/items/) и labels.json не меняются; min_quantity действует только на /api/items.",
+    "R7": "Добавлены автотесты чистых функций, HTTP-тесты на реальном ThreadingHTTPServer и проба совместимости parse_qs; политика проверок (.agent/project.json, CI) не меняется."
+  },
+  "criteria": {
+    "AC1": {
+      "requirement": "R1",
+      "expected": "/api/items и /api/items? → 200, Content-Type application/json, тело == json.dumps(list_items()).encode() и == литералу двух товаров.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k CatalogHTTPTests.test_no_filter_returns_full_catalog"
+    },
+    "AC2": {
+      "requirement": "R2",
+      "expected": "filter_items на остатках [0,2,3,3,10]: порог 3 → id [3,4,5]; 0 → все; 11 и 2^63-1 → []; пустой вход → []; вход не мутирован, результат — новый список; изменение результата не влияет на следующий вызов.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k FilterItemsTests"
+    },
+    "AC3": {
+      "requirement": "R2",
+      "expected": "HTTP min_quantity 0/3 → id [1,2]; 4/5/004 → [2]; 6 и 9223372036854775807 → []; все 200 application/json; тело при 0 == полному каталогу.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k CatalogHTTPTests.test_filter_results"
+    },
+    "AC4": {
+      "requirement": "R3",
+      "expected": "parse_min_quantity: 0→0, 00→0, 3→3, 007→7, 9223372036854775807→MAX, '0'*5000+'1'→1, min_quantity=4&foo=bar→4, foo=&min_quantity=4→4, min%5Fquantity=4→4; результат типа int.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests.test_valid_values"
+    },
+    "AC5": {
+      "requirement": "R4",
+      "expected": "parse_min_quantity бросает MinQuantityError с кодом из SPEC.md §5 для всех 32 случаев PLAN.md S3 (включая '1'+'0'*5000 → too_large без ValueError от int); to_dict() и str(err) дают точные тексты.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests.test_error"
+    },
+    "AC6": {
+      "requirement": "R4",
+      "expected": "14 неверных target из PLAN.md S3 → 400, application/json, Content-Length == длине тела, тело == {\"error\": {\"code\": code, \"parameter\": \"min_quantity\", \"message\": MESSAGES[code]}}.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k CatalogHTTPTests.test_invalid_values_return_400_json"
+    },
+    "AC7": {
+      "requirement": "R5",
+      "expected": "parse_min_quantity → None для '', '&', '=5', 'foo=1', 'min_qty=3', 'MIN_QUANTITY=3'; HTTP ?min_qty=3, ?MIN_QUANTITY=4, ?foo=bar → полный каталог; ?foo=bar&min_quantity=4 и ?min_quantity=4&foo= → [Pencil].",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests.test_absent_returns_none -k CatalogHTTPTests.test_unknown_parameters_are_ignored"
+    },
+    "AC8": {
+      "requirement": "R6",
+      "expected": "list_items() == исходному литералу, тесты свежести проходят; '/' и '/?min_quantity=abc' → 200 text/html с прежним содержимым; /health и /health?min_quantity=-1 → 200 {\"ok\": true}; /missing, /api/items/, /api/items/?min_quantity=1 → 404; labels.json, README.md, .agent/project.json, .github, notes не изменены.",
+      "verification": "python3 -m unittest discover -s tests -p test_api.py -k InventoryTests -k CatalogHTTPTests.test_other_routes_unchanged && git diff --exit-code 57923dcefab1b47115a9bab26b4a73b8e879f19b -- labels.json README.md .agent/project.json .github notes"
+    },
+    "AC9": {
+      "requirement": "R7",
+      "expected": "Есть классы InventoryTests, FilterItemsTests, ParseMinQuantityTests, CatalogHTTPTests и проба test_parse_qs_semantics_probe; quick-проверка проходит у исполнителя; полный набор canary-tests проходит только в Verify контроллера.",
+      "verification": "scripts/agent-check --phase quick && python3 -m py_compile tests/test_api.py && python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests.test_parse_qs_semantics_probe"
+    }
+  },
+  "decisions": [
+    "D1: parse_min_quantity(query) в api.py — чистая функция над сырой строкой urlsplit(path).query через parse_qs(query, keep_blank_values=True); отклонены разбор в app.py и ручной split.",
+    "D2: filter_items(items, min_quantity) — отдельная чистая функция, новый список без мутации входа; list_items() не меняется; отклонён параметр list_items(min_quantity=None).",
+    "D3: валидация только re.compile(r'[0-9]+').fullmatch; запрещены int() напрямую, isdigit, \\d, re.match(...$), strip, float.",
+    "D4: верхняя граница 2^63-1; ведущие нули снимаются до int(), значимая часть > 19 цифр → too_large, поэтому лимит int() в 4300 цифр недостижим.",
+    "D5: порядок: duplicate → empty → digits/too_large → negative (-0*[1-9][0-9]*) → not_integer (дробь) → invalid; '-0' → invalid.",
+    "D6: MinQuantityError(ValueError) с code, message, to_dict(); тексты из MIN_QUANTITY_ERRORS; обработчик ловит только этот класс.",
+    "D7: app.py получает status=200 по умолчанию; ветка /api/items ставит 400 при ошибке; общий путь заголовков, ветки '/', /health и 404 не меняются.",
+    "D8: тексты ошибок на английском, машинные коды стабильны (ответ владельца error_language, 2026-11-08).",
+    "D9: посторонние параметры игнорируются (ответ владельца unknown_params, 2026-11-08).",
+    "D10: HTTP-тесты на ThreadingHTTPServer(('127.0.0.1', 0)) в фоновом потоке через http.client с таймаутом 5 с; тихий обработчик только в тестах.",
+    "D11: политика проверок не меняется: .agent/project.json и CI не трогаются, project_policy_change не нужен.",
+    "D12: откат — git revert коммита реализации; данных, миграций и состояния нет."
+  ],
+  "risks": [
+    "Неверная классификация экзотических строк (Unicode-цифры, '+', '\\n', '_', длинные нули) — закрыто таблицей 32 случаев AC5 и эталонным алгоритмом, сверенным на 47 случаях на CPython 3.12.3.",
+    "Иная семантика parse_qs в версии Python на CI ubuntu-latest (не закреплена, A1) — закрыто пробой test_parse_qs_semantics_probe, поддерживается CPython >= 3.10.",
+    "Необработанное исключение в do_GET рвёт соединение без ответа (подтверждено пробой) — все ошибки разбора превращаются в MinQuantityError → 400.",
+    "Зависание HTTP-тестов или конфликт портов — эфемерный порт 127.0.0.1, таймаут клиента 5 с, явные shutdown/server_close/join.",
+    "Регрессия ответа каталога без фильтра — закрыто байтовым равенством AC1 и литералом данных AC8."
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "files": ["api.py"],
+      "change": "Добавить импорт re и parse_qs, константы MIN_QUANTITY_PARAM, MAX_MIN_QUANTITY, MIN_QUANTITY_ERRORS, регулярные выражения _DIGITS/_NEGATIVE/_FRACTION, класс MinQuantityError, функции parse_min_quantity и filter_items ровно по эталону PLAN.md S1; list_items() оставить байт в байт.",
+      "criteria": ["AC2", "AC4", "AC5", "AC7", "AC8"],
+      "depends_on": [],
+      "verification": "python3 -m py_compile api.py"
+    },
+    {
+      "id": "S2",
+      "files": ["app.py"],
+      "change": "Импорт MinQuantityError, filter_items, parse_min_quantity; parts = urlsplit(self.path), status = 200; ветка /api/items разбирает parts.query, при MinQuantityError отдаёт 400 с error.to_dict(), иначе фильтрует при заданном N; send_response(status). Остальные ветки не менять (PLAN.md S2).",
+      "criteria": ["AC1", "AC3", "AC6", "AC7", "AC8"],
+      "depends_on": ["S1"],
+      "verification": "scripts/agent-check --phase quick"
+    },
+    {
+      "id": "S3",
+      "files": ["tests/test_api.py"],
+      "change": "Сохранить InventoryTests и добавить test_catalog_data_unchanged; добавить FilterItemsTests, ParseMinQuantityTests (включая 32 случая ошибок и test_parse_qs_semantics_probe) и CatalogHTTPTests с QuietHandler на эфемерном порту — ровно по таблицам PLAN.md S3.",
+      "criteria": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9"],
+      "depends_on": ["S1", "S2"],
+      "verification": "python3 -m py_compile tests/test_api.py && python3 -m unittest discover -s tests -p test_api.py -k FilterItemsTests && python3 -m unittest discover -s tests -p test_api.py -k ParseMinQuantityTests && python3 -m unittest discover -s tests -p test_api.py -k HTTP && python3 -m unittest discover -s tests -p test_api.py -k InventoryTests"
+    },
+    {
+      "id": "S4",
+      "files": ["api.py", "app.py", "tests/test_api.py"],
+      "change": "Закоммитить три файла (заголовок «Canary 02 · Фильтр min_quantity для каталога»), после коммита выполнить quick-проверку, убедиться в неизменности защищённых файлов и сформировать передачу scripts/pipeline-report; без push, merge и полного набора.",
+      "criteria": ["AC8", "AC9"],
+      "depends_on": ["S3"],
+      "verification": "scripts/agent-check --phase quick && git diff --exit-code 57923dcefab1b47115a9bab26b4a73b8e879f19b -- labels.json README.md .agent/project.json .github notes"
+    }
+  ],
+  "needs_uat": false,
+  "uat_reason": "Меняется только JSON API без экранов; всё видимое пользователю поведение (200, фильтр, 400 с текстом) полностью проверяется автотестами HTTP и чистых функций, brief прямо исключает UAT."
+}
