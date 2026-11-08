@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "needs_uat": false,
+  "uat_reason": "Видимое изменение — одно слово статуса на странице (Status: Ready); подпись кнопки Reload items уже проверена владельцем в Canary 10, код отображения не меняется, BRIEF прямо исключает ручной UAT; байты labels.json проверяются точным сравнением blob.",
+  "requirements": {
+    "R1": "В итоговом labels.json badge = Ready, получено одной точной заменой Draft→Ready в версии файла из базы интеграции B.",
+    "R2": "Все upstream-изменения main до B сохранены: button = Reload items (5f22a42), notes/parallel-a.txt из fdbf1e4 и прочие файлы main не откатываются.",
+    "R3": "Ветка feature/canary-01-0k1 линейно перебазирована на B и сливается с текущим main без конфликтов.",
+    "R4": "Относительно B меняются только labels.json (строка badge) и документы задачи в .agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8/.",
+    "R5": "Проверки проекта проходят: quick у исполнителя, полный набор только в Verify контроллера."
+  },
+  "criteria": {
+    "AC1": {
+      "requirement": "R1",
+      "expected": "HEAD:labels.json — blob 89b9bb8f13167ce927f4bca8912a103a2941360f, т.е. {\"badge\": \"Ready\", \"button\": \"Reload items\"} в исходном форматировании; JSON разбирается.",
+      "verification": "test \"$(git rev-parse HEAD:labels.json)\" = 89b9bb8f13167ce927f4bca8912a103a2941360f && python3 -I -c 'import json;assert json.load(open(\"labels.json\"))=={\"badge\":\"Ready\",\"button\":\"Reload items\"}'"
+    },
+    "AC2": {
+      "requirement": "R2",
+      "expected": "fdbf1e4 и 5f22a42 являются предками HEAD; устаревшая база 57923dc без upstream больше не используется.",
+      "verification": "git merge-base --is-ancestor fdbf1e4203a8770c7148668e14de48a79b65dad5 HEAD && git merge-base --is-ancestor 5f22a42dd5e8cbf17890d7444c16ff87186cb09a HEAD"
+    },
+    "AC3": {
+      "requirement": "R4",
+      "expected": "Вне каталога задачи от B отличается только labels.json, а B:labels.json — upstream-blob 14ee0ebf25856d061866cdb79ec0f413f36741b9.",
+      "verification": "B=$(git merge-base HEAD origin/main); test \"$(git diff --name-only \"$B\" HEAD -- . ':(exclude).agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8')\" = labels.json && test \"$(git rev-parse \"$B:labels.json\")\" = 14ee0ebf25856d061866cdb79ec0f413f36741b9"
+    },
+    "AC4": {
+      "requirement": "R3",
+      "expected": "git merge-tree HEAD origin/main без конфликтов (код 0) и нет merge-коммитов между B и HEAD.",
+      "verification": "git fetch origin && git merge-tree --write-tree HEAD origin/main >/dev/null && test -z \"$(git rev-list --merges \"$(git merge-base HEAD origin/main)\"..HEAD)\""
+    },
+    "AC5": {
+      "requirement": "R5",
+      "expected": "scripts/agent-check --phase quick завершается с кодом 0; полный unittest-набор ok в Verify контроллера.",
+      "verification": "scripts/agent-check --phase quick (исполнитель); python3 -m unittest discover -s tests -v (только Verify контроллера)"
+    }
+  },
+  "decisions": [
+    "D1: База интеграции P = fdbf1e4203a8770c7148668e14de48a79b65dad5 вместо устаревшей 57923dc; B = P, если request.integration_base пуст или предок P; B = request.integration_base, если он потомок P и B:labels.json = blob 14ee0eb; иначе остановка и --amendment.",
+    "D2: button = Reload items: BRIEF запрещает менять остальные значения относительно main; 5f22a42 — слитое изменение владельца. Вариант «оставить Refresh» отвергнут как откат upstream.",
+    "D3: Интеграция через git rebase на B (линейная история, ожидание контроллера), не merge-коммит; push переписанной ветки выполняет контроллер.",
+    "D4: Конфликт разрешается пересозданием labels.json из B:labels.json одной побайтовой заменой Draft→Ready с проверкой единственного вхождения; ручная правка маркеров и -X ours/theirs запрещены.",
+    "D5: Новые тесты не добавляются: область BRIEF — одно значение; корректность доказывается точным blob, предками, списком путей и merge-tree.",
+    "D6: needs_uat=false: видимое изменение одно слово, кнопка уже проверена владельцем, BRIEF исключает UAT.",
+    "D7: Критерии TEAM.json заменены: TEAM AC1 → AC1, TEAM AC2 → AC2+AC3; TEAM.json не редактируется.",
+    "D8: Маршрут standard: механическая правка плюс rebase на новую базу с разрешением конфликта; fast path неприменим."
+  ],
+  "risks": [
+    "Main продвинется после выбора B и снова изменит labels.json — S1 остановит работу с amendment, либо контроллер получит конфликт и запустит Fix с новой базой по правилу D1.",
+    "Исполнитель вручную правит маркеры конфликта или перебазирует на живой origin/main — ловится AC1 (точный blob), AC2 и AC3.",
+    "Устаревший AC2 «button остаётся Refresh» в TEAM.json может ввести ревьюера в заблуждение — SPEC D7 прямо заменяет критерии.",
+    "Переписанная история требует принудительной публикации ветки — это действие контроллера; исходное состояние сохранено в origin/feature/canary-01-0k1 и в PRE для отката."
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "files": [
+        "labels.json"
+      ],
+      "change": "Только чтение: выбрать базу B по правилу D1 (команда PLAN.md S1), проверить B:labels.json = blob 14ee0eb, чистое дерево; записать B и PRE. Ненулевой код → --amendment.",
+      "criteria": [
+        "AC2"
+      ],
+      "depends_on": [],
+      "verification": "команда S1 из PLAN.md печатает B=<sha> и завершается с кодом 0; сейчас ожидается B=fdbf1e4203a8770c7148668e14de48a79b65dad5"
+    },
+    {
+      "id": "S2",
+      "files": [
+        "labels.json"
+      ],
+      "change": "git rebase <B>; на конфликте только в labels.json пересоздать файл: git show \"$B:labels.json\" | python3 -I -c (точная замена Draft→Ready, count==1) > labels.json; проверить git hash-object = 89b9bb8f…; git add labels.json; GIT_EDITOR=true git rebase --continue. Любой иной конфликт → git rebase --abort и amendment.",
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ],
+      "depends_on": [
+        "S1"
+      ],
+      "verification": "git hash-object labels.json = 89b9bb8f13167ce927f4bca8912a103a2941360f до rebase --continue; rebase завершён, git status --porcelain пуст"
+    },
+    {
+      "id": "S3",
+      "files": [
+        "labels.json"
+      ],
+      "change": "Выполнить команды AC1–AC4 и scripts/agent-check --phase quick без каких-либо правок; полный набор тестов не запускать.",
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC5"
+      ],
+      "depends_on": [
+        "S2"
+      ],
+      "verification": "все команды AC1–AC4 и scripts/agent-check --phase quick завершаются с кодом 0"
+    },
+    {
+      "id": "S4",
+      "files": [
+        ".agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8"
+      ],
+      "change": "Записать отчёт владельцу по схеме request.owner_reporting исполнителя (B, PRE, новый HEAD, коды выхода AC1–AC5) и выполнить scripts/pipeline-report --task 5ae6e61d-c598-4526-8e53-2230864c3ba8 с требуемыми флагами; push/merge/step_complete не выполнять.",
+      "criteria": [
+        "AC5"
+      ],
+      "depends_on": [
+        "S3"
+      ],
+      "verification": "scripts/pipeline-report --task 5ae6e61d-c598-4526-8e53-2230864c3ba8 завершается с кодом 0 и печатает путь handoff.json"
+    }
+  ]
+}
