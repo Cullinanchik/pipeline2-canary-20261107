@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "class": "mechanical",
+  "risk": "low",
+  "confidence": "high",
+  "reason": "Закреплённый brief .agent/runtime/3ccf8917-d7fa-4bc3-97c4-4e9bd6952d21/context/c9cbc855c6364ea4b557c800b26f3e5c7210948e5da8fcc1cccc9c295c87471a.json разрешает только pending → completed в notes/parallel-b.txt и исключает UAT. Прочитанный файл содержит ровно строку Synthetic note B: pending. с завершающим переводом строки, одно вхождение pending. Ветка feature/canary-09-b-fxx; исходники не изменены. Область — один текстовый файл, без изменений логики, зависимостей, миграций, данных приложения или безопасности. Достаточен быстрый маршрут builder/reviewer.",
+  "paths": [
+    "notes/parallel-b.txt"
+  ],
+  "criteria": {
+    "AC1": "В notes/parallel-b.txt единственное pending заменено на completed; итоговые байты: Synthetic note B: completed.\\n.",
+    "AC2": "Остальные байты целевого файла и другие файлы приложения не изменены.",
+    "AC3": "UAT не требуется; работа ограничена текущим worktree."
+  },
+  "verification": [
+    "python3 -c \"from pathlib import Path; assert Path('notes/parallel-b.txt').read_bytes() == b'Synthetic note B: completed.\\n'\"",
+    "git diff 57923dcefab1b47115a9bab26b4a73b8e879f19b -- notes/parallel-b.txt",
+    "git diff --name-only 57923dcefab1b47115a9bab26b4a73b8e879f19b",
+    "scripts/agent-check --phase quick"
+  ],
+  "needs_uat": false,
+  "members": [
+    {
+      "role": "builder",
+      "scope": "Выполнить ровно замену pending на completed в notes/parallel-b.txt; проверить AC1–AC3."
+    },
+    {
+      "role": "reviewer",
+      "scope": "Проверить точный diff и сохранённые актуальные проверки, соответствие AC1–AC3."
+    }
+  ],
+  "edits": [
+    {
+      "path": "notes/parallel-b.txt",
+      "before": "pending",
+      "after": "completed"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "required": false,
+  "brief": "Замена текстового статуса в notes/parallel-b.txt не затрагивает интерфейс и не требует дизайна.",
+  "reuse": []
+}
