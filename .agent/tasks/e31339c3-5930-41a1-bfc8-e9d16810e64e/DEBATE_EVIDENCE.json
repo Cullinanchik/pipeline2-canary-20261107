@@ -1,0 +1,65 @@
+{
+  "task_id": "e31339c3-5930-41a1-bfc8-e9d16810e64e",
+  "run_id": "7dedc26e-1c3f-412a-9dcf-c9db68890cb2",
+  "generation": 6,
+  "context_digest": "abc9f89f9173474a17df31dc3c85bba53548aa2a73fbd4ad07694c94ec67108d",
+  "python": "3.12.3",
+  "sqlite": "3.45.1",
+  "kind": "isolated stdlib probes of plan premises; not application tests",
+  "probes": [
+    {
+      "id": "future_schema_journal",
+      "user_version": 99,
+      "before_journal_mode": "wal",
+      "pragma_result": "delete",
+      "after_rollback_journal_mode": "delete",
+      "marker": "keep"
+    },
+    {
+      "id": "short_body",
+      "declared_length": 64,
+      "received_length": 54,
+      "parsed_payload": {
+        "item_id": 1,
+        "quantity": 1,
+        "idempotency_key": "partial"
+      },
+      "passes_S1_validation": true
+    },
+    {
+      "id": "large_length_header",
+      "header_digits": 5000,
+      "passes_digit_check": true,
+      "exception_type": "ValueError",
+      "message": "Exceeds the limit (4300 digits) for integer string conversion: value has 5000 digits; use sys.set_int_max_str_digits() to increase the limit"
+    },
+    {
+      "id": "unpaired_surrogate_key",
+      "body_utf8": true,
+      "key_codepoints": [
+        55296
+      ],
+      "passes_key_validation": true,
+      "exception_type": "UnicodeEncodeError",
+      "message": "'utf-8' codec can't encode character '\\ud800' in position 0: surrogates not allowed"
+    },
+    {
+      "id": "short_body_socket_eof",
+      "declared_length": 64,
+      "received_length": 54,
+      "payload": {
+        "item_id": 1,
+        "quantity": 1,
+        "idempotency_key": "partial"
+      }
+    }
+  ],
+  "input_validation": {
+    "all_content_sizes_match": true,
+    "frozen_equals_tracked": [
+      "SPEC.md",
+      "PLAN.md",
+      "PLAN.json"
+    ]
+  }
+}
