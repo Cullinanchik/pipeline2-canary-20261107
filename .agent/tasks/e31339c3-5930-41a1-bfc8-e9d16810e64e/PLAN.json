@@ -4,11 +4,11 @@
  "uat_reason": "Пользовательского интерфейса нет: меняются только JSON API и хранилище. Всё наблюдаемое поведение (статусы, остатки, идемпотентность, гонки, рестарт) проверяется автоматическими сервисными и HTTP-тестами; владелец в BRIEF указал, что UAT не требуется.",
  "requirements": {
   "R1": "Остатки хранятся в SQLite; первичная инициализация создаёт Notebook=3 и Pencil=5; GET /api/items читает БД, quantity = свободный остаток, формат прежний.",
-  "R2": "POST /api/reservations создаёт резервацию (item_id, quantity, idempotency_key) и атомарно списывает остаток; контракт статусов SPEC §4; некорректный запрос отклоняется без записи.",
+  "R2": "POST /api/reservations создаёт резервацию (item_id, quantity, idempotency_key) и атомарно списывает остаток; контракт статусов SPEC §4; некорректный запрос, включая неверный Content-Length и неполное тело, отклоняется без записи.",
   "R3": "Повтор ключа с теми же данными возвращает исходную резервацию (200) без повторного списания; тот же ключ с другими данными — 409.",
   "R4": "Конкурентные запросы (потоки и процессы) не делают остаток отрицательным; списание и запись резервации неделимы.",
   "R5": "Любой сбой внутри операции откатывает транзакцию целиком; неуспешная попытка не занимает ключ.",
-  "R6": "Данные переживают рестарт и аварийное завершение процесса; повторная инициализация не сбрасывает остатки; схема версионирована, более новая отвергается.",
+  "R6": "Данные переживают рестарт и аварийное завершение процесса; повторная инициализация не сбрасывает остатки; схема версионирована, более новая отвергается до любого изменения файла (данных, версии, режима журнала).",
   "R7": "Автотесты покрывают гонку, rollback, идемпотентность, восстановление и контракт; без внешних сервисов и настоящих данных; UI не меняется.",
   "R8": "Занятая БД даёт повторяемую 503 без записи; путь к БД через --db; README описывает контракт, сброс и откат."
  },
@@ -20,12 +20,12 @@
   },
   "AC2": {
    "requirement": "R2",
-   "expected": "Корректный POST -> 201 с ключами id,item_id,quantity,idempotency_key,created_at (YYYY-MM-DDTHH:MM:SS.mmmZ); остаток уменьшен; резерв ровно в остаток успешен, следующий 409 insufficient_stock; 405+Allow для GET /api/reservations и POST /api/items; 404 not_found для прочего POST.",
+   "expected": "Корректный POST -> 201 с ключами id,item_id,quantity,idempotency_key,created_at (YYYY-MM-DDTHH:MM:SS.mmmZ); остаток уменьшен; резерв ровно в остаток успешен, следующий 409 insufficient_stock; Unicode-ключи 'заказ-№42 ✓' и '🧾-1' (в HTTP парой escape) -> 201, ключ сохранён без изменений, повтор 200 теми же байтами; 405+Allow для GET /api/reservations и POST /api/items; 404 not_found для прочего POST.",
    "verification": "python3 -m unittest discover -s tests -p 'test_*.py' -k _ac2_"
   },
   "AC3": {
    "requirement": "R2",
-   "expected": "22 некорректных payload и плохие тела -> 400 invalid_request; неизвестный товар 404 item_not_found; нехватка 409 insufficient_stock; без Content-Length 411; Content-Length 5000 -> 413; остатки и число резерваций не меняются.",
+   "expected": "24 некорректных payload (вкл. ключи '\\ud800' и 'x\\udc00y') -> 400 invalid_request; parse_content_length: '9'*5000 -> 413, '0'*5000+'12' -> 12, 4097 -> 413, нецифровые и повтор -> 400, пусто -> 411; HTTP: плохие тела и escape \\ud800 -> 400, повторённый Content-Length -> 400, без него 411, 5000 и 5000 девяток -> 413, сырой сокет с Content-Length на 10 больше тела и SHUT_WR -> 400, то же без SHUT_WR при REQUEST_TIMEOUT_SECONDS=0.5 -> 400, неизвестный товар 404, нехватка 409; после каждого отказа остатки = seed, 0 резерваций, ключ свободен.",
    "verification": "python3 -m unittest discover -s tests -p 'test_*.py' -k _ac3_"
   },
   "AC4": {
@@ -50,7 +50,7 @@
   },
   "AC8": {
    "requirement": "R6",
-   "expected": "Новый Inventory/сервер на том же файле видит те же данные, повтор -> 200 тем же телом; user_version=1, journal_mode=delete; user_version=99 -> SchemaVersionError без изменений.",
+   "expected": "Новый Inventory/сервер на том же файле видит те же данные, повтор -> 200 тем же телом; user_version=1, journal_mode=delete; DELETE-БД v99 -> SchemaVersionError без изменений; WAL-БД v99 с marker -> SchemaVersionError, режим wal, версия 99, marker цел, таблиц items/reservations и файлов -wal/-shm/-journal нет; _user_version side_effect [0, 99] -> SchemaVersionError, sqlite_master пуст; v1-БД в WAL конвертируется в delete без потери данных.",
    "verification": "python3 -m unittest discover -s tests -p 'test_*.py' -k _ac8_"
   },
   "AC9": {
@@ -76,30 +76,33 @@
  },
  "decisions": [
   "D1: api.py — хранилище и правила (Inventory), app.py — только HTTP; новых модулей нет.",
-  "D2: SQLite в режиме журнала DELETE, synchronous=FULL; WAL отклонён из-за WAL-reset bug в SQLite 3.7.0–3.51.2 (локально 3.45.1); journal_mode=DELETE принудительно при старте.",
+  "D2: SQLite в режиме журнала DELETE, synchronous=FULL; WAL отклонён из-за WAL-reset bug в SQLite 3.7.0–3.51.2 (локально 3.45.1); режим меняется на DELETE только после предварительной проверки версии и только если текущий режим не delete; выйти из WAL в транзакции нельзя.",
   "D3: соединение на операцию, без общих соединений между потоками.",
   "D4: явные транзакции: autocommit=True на Python>=3.12, иначе isolation_level=None; только именованные аргументы; без executescript и with conn.",
   "D5: резерв в одной транзакции BEGIN IMMEDIATE: ключ -> товар -> остаток -> UPDATE ... AND quantity >= ? (rowcount 1) -> INSERT -> COMMIT; CHECK(quantity>=0) и UNIQUE(idempotency_key) как защита в глубину.",
   "D6: ключ проверяется внутри блокировки записи; ключ занимают только успешные резервации; повтор возвращает 200 с тем же телом даже при нулевом остатке.",
-  "D7: миграции через PRAGMA user_version, SCHEMA_VERSION=1, seed только в миграции 0->1; более новая схема -> SchemaVersionError.",
+  "D7: init_db: (а) чтение user_version и отказ SchemaVersionError до любых изменений; (б) смена журнала при необходимости; (в) BEGIN IMMEDIATE, повторная проверка версии под блокировкой, миграции, PRAGMA user_version, COMMIT; seed только в миграции 0->1.",
   "D8: восстановление после сбоя обеспечивает горячий журнал SQLite; подтверждено зондом.",
   "D9: ответ отправляется после COMMIT; клиент безопасно повторяет с тем же ключом.",
   "D10: SQLITE_BUSY/LOCKED -> 503 storage_busy + Retry-After: 1; BUSY_TIMEOUT_SECONDS=5.0 читается при вызове.",
   "D11: путь БД по умолчанию var/inventory.sqlite3, CLI --db; var/ в .gitignore; тесты только во временных каталогах.",
-  "D12: InventoryServer(ThreadingHTTPServer) с request_queue_size=64; make_server(host, port, db_path).",
-  "D13: валидация до транзакции: тело <= 4096 байт, JSON-объект ровно из трёх полей, без дубликатов, строгие int/str и диапазоны.",
+  "D12: InventoryServer(ThreadingHTTPServer) с request_queue_size=64; make_server(host, port, db_path); тайм-аут сокета REQUEST_TIMEOUT_SECONDS=10 через Handler.setup() + socket.settimeout (без недокументированного StreamRequestHandler.timeout).",
+  "D13: валидация до открытия БД: JSON-объект ровно из трёх полей, без дубликатов, строгие int и диапазоны; idempotency_key — непустая (strip) str до 128 кодовых точек, кодируемая в UTF-8 (непарные суррогаты -> 400); прочий Unicode допустим и сравнивается точно.",
   "D14: ошибки {error, message}; контрактен только error.",
   "D15: решение владельца — без отмены и истечения резервов; quantity в GET /api/items — свободный остаток.",
-  "D16: откат через git revert; файл БД и -journal удалять только вместе при остановленном сервере; .agent/project.json не меняется."
+  "D16: откат через git revert; файл БД и -journal удалять только вместе при остановленном сервере; .agent/project.json не меняется.",
+  "D17: чтение тела: нет Content-Length -> 411, повтор -> 400, не ASCII-цифры -> 400, ограниченный разбор без int() по длинной строке (>4 значащих цифр или >4096 -> 413 без чтения), rfile.read: OSError или len(body)!=length -> 400 и закрытие соединения без вызова reserve; UnicodeDecodeError/ValueError/RecursionError -> 400."
  ],
  "risks": [
-  "WAL-reset bug SQLite <= 3.51.2: устранён выбором режима DELETE, принудительного при старте.",
+  "WAL-reset bug SQLite <= 3.51.2: режим DELETE, переключение только после проверки версии (D2, D7).",
   "Сериализация записей ограничивает пропускную способность; при длительной блокировке 503 с безопасным повтором.",
   "Нестабильность тестов гонки: Barrier, проверка счётчиков, а не времени; join с таймаутом; очередь сокета 64.",
   "Проверены только Python 3.12.3 и SQLite 3.45.1; другие версии покрыты лишь совместимым кодом и зондом AC10.",
   "Ручное удаление журнала после сбоя может повредить данные; предупреждение в README.",
   "413 без чтения тела может дать клиенту сброс соединения; тесты шлют только заголовки (SPEC A7).",
-  "Ошибка диска или SQLite: ROLLBACK и 500 без частичных записей."
+  "Ошибка диска или SQLite: ROLLBACK и 500 без частичных записей.",
+  "Медленный или оборванный клиент: тайм-аут сокета 10 с и 400 без вызова reserve (D12, D17); тест тайм-аута ждёт 0.5 с.",
+  "Окно между проверкой версии и сменой журнала при одновременной работе более нового релиза: повторная проверка под блокировкой, запрет одновременной работы двух релизов (SPEC A8, D16)."
  ],
  "steps": [
   {
@@ -107,7 +110,7 @@
    "files": [
     "api.py"
    ],
-   "change": "Заменить api.py: константы, ApiError, SchemaVersionError, _connect, _is_busy, _rollback, _busy_error, init_db с миграцией v1, validate_reservation, _reservation, класс Inventory (list_items, reserve) строго по PLAN.md S1.",
+   "change": "Заменить api.py: константы, ApiError, SchemaVersionError, _connect, _is_busy, _rollback, _busy_error, _user_version, _refuse_newer, init_db (а: проверка версии только чтением; б: журнал DELETE при необходимости; в: BEGIN IMMEDIATE + повторная проверка + миграция v1), validate_reservation (вкл. UTF-8-кодируемость ключа), _reservation, класс Inventory (list_items, reserve) строго по PLAN.md S1.",
    "criteria": [
     "AC1",
     "AC2",
@@ -128,7 +131,7 @@
    "files": [
     "app.py"
    ],
-   "change": "HTTP-слой: MAX_BODY_BYTES, InventoryServer, make_server, _reject_duplicate_keys, Handler (_send_json, _send_api_error, _send_internal_error, do_GET, _read_json, do_POST), --db в __main__; /, /health без изменений; по PLAN.md S2.",
+   "change": "HTTP-слой: MAX_BODY_BYTES, REQUEST_TIMEOUT_SECONDS, InventoryServer, make_server, _reject_duplicate_keys, parse_content_length (ограниченный разбор), Handler (setup с settimeout, _send_json, _send_api_error, _send_internal_error, do_GET, _read_json с проверкой полноты тела, do_POST), --db в __main__; /, /health без изменений; по PLAN.md S2.",
    "criteria": [
     "AC1",
     "AC2",
@@ -150,7 +153,7 @@
    "files": [
     "tests/test_api.py"
    ],
-   "change": "Переписать сервисные тесты: StorageTestCase, InventoryStorageTests, ConcurrencyTests, RecoveryTests с именами test_acN_* из PLAN.md S3.",
+   "change": "Переписать сервисные тесты: StorageTestCase, InventoryStorageTests (вкл. Unicode-ключи, 24 некорректных payload, отказ WAL-БД v99 без изменений, повторная проверка версии под блокировкой, конверсия v1-WAL), ConcurrencyTests, RecoveryTests с именами test_acN_* из PLAN.md S3.",
    "criteria": [
     "AC1",
     "AC2",
@@ -174,7 +177,7 @@
    "files": [
     "tests/test_reservations_http.py"
    ],
-   "change": "Новые HTTP-тесты на реальном сервере в потоке (порт 0, временная БД) с именами test_acN_* из PLAN.md S4.",
+   "change": "Новые HTTP-тесты на реальном сервере в потоке (порт 0, временная БД) с именами test_acN_* из PLAN.md S4, вкл. parse_content_length, 5000 девяток -> 413, повтор Content-Length, сырой сокет с обрезанным телом (EOF и тайм-аут), Unicode-ключи.",
    "criteria": [
     "AC1",
     "AC2",

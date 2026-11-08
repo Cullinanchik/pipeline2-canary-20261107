@@ -1,0 +1,125 @@
+{
+ "task_id": "e31339c3-5930-41a1-bfc8-e9d16810e64e",
+ "run_id": "c865c4ed-6cba-49a8-92c5-08bc9625a7df",
+ "generation": 7,
+ "context_digest": "c8648efe008b331f1fcb3692fa67f15e6c2f78f1cff32fd640e0b31fca7097e6",
+ "date": "2026-11-08",
+ "python": "3.12.3",
+ "sqlite": "3.45.1",
+ "kind": "isolated stdlib probes of architect decisions on temporary files outside the repository; not application tests",
+ "probes": {
+  "D7_future_wal_precheck_read_only": {
+   "version_read": 99,
+   "refused": true,
+   "journal_after": "wal",
+   "user_version_after": 99,
+   "marker": [
+    [
+     "keep"
+    ]
+   ],
+   "tables": [
+    "marker"
+   ],
+   "files_after_close": [
+    "future.db"
+   ]
+  },
+  "D2_v1_wal_converted_to_delete": {
+   "query": "wal",
+   "set_result": "delete",
+   "after_reopen": "delete"
+  },
+  "D2_leave_wal_inside_transaction": {
+   "exc": "OperationalError",
+   "msg": "cannot change out of wal mode from within a transaction"
+  },
+  "D7_fresh_file_before_migration": {
+   "user_version": 0,
+   "journal_mode": "delete",
+   "exists": true,
+   "size": 0
+  },
+  "D13_nul_in_key_exact_compare": {
+   "eq_same": 1,
+   "eq_other": 0,
+   "eq_prefix": 0,
+   "roundtrip": true,
+   "second_distinct_insert": "inserted"
+  },
+  "D13_lone_surrogates_utf8_encode": {
+   "'\\ud800'": "UnicodeEncodeError",
+   "'x\\udc00y'": "UnicodeEncodeError"
+  },
+  "D13_valid_surrogate_pair_escape": {
+   "len": 1,
+   "codepoint": "0x1f9fe",
+   "encodable": 4
+  },
+  "D13_unicode_keys_roundtrip": true,
+  "A10_deep_json_nesting": {
+   "arrays_2000_levels": {
+    "len": 4000,
+    "result": "ok"
+   }
+  },
+  "D17_bounded_content_length": {
+   "999999999999…[5000]": "413",
+   "000000000000…[5002]": 12,
+   "4096[4]": 4096,
+   "4097[4]": "413",
+   "abc[3]": "400",
+   "-1[2]": "400",
+   "1.5[3]": "400",
+   "[0]": "400",
+   "١٢[2]": "400",
+   "²[1]": "400"
+  },
+  "D17_body_read_setup_settimeout": {
+   "body_len": 59,
+   "half_close_declared_plus_10": [
+    "HTTP/1.0 400 Bad Request",
+    {
+     "error": "invalid_request",
+     "message": "incomplete body"
+    }
+   ],
+   "stalled_timeout_0_5s": [
+    "HTTP/1.0 400 Bad Request",
+    {
+     "error": "invalid_request",
+     "message": "incomplete body"
+    }
+   ],
+   "exact_length": [
+    "HTTP/1.0 201 Created",
+    {
+     "item_id": 1,
+     "quantity": 1,
+     "idempotency_key": "partial"
+    }
+   ],
+   "server_observed": [
+    [
+     "short",
+     69,
+     59
+    ],
+    [
+     "timeout",
+     "TimeoutError",
+     true
+    ],
+    [
+     "full",
+     59
+    ]
+   ]
+  }
+ },
+ "sources_checked": {
+  "https://docs.python.org/3/library/stdtypes.html#integer-string-conversion-length-limitation": "3.15.2 docs: default limit 4300 digits, ValueError when exceeded, added in 3.11; patch-release backport versions not listed on the page",
+  "https://docs.python.org/3/library/socketserver.html": "3.15.2 docs: only BaseServer.timeout documented; StreamRequestHandler.timeout not documented (present in local 3.12.3 source)",
+  "https://docs.python.org/3/library/http.server.html": "3.15.2 docs: protocol_version defaults to HTTP/1.0; close_connection; rfile is io.BufferedIOBase; EOF/timeout behaviour of rfile.read not described"
+ }
+}
