@@ -1,0 +1,73 @@
+{
+  "task_id": "5ae6e61d-c598-4526-8e53-2230864c3ba8",
+  "run_id": "95dc26f6-f16c-4801-a6f1-ef64ca43c782",
+  "generation": 30,
+  "context_digest": "d71c6504389c5fb843901af51d950a8318b9a1308fb2b5766a8545f40b312213",
+  "stage": "Work",
+  "environment": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "git": "2.43.0",
+    "dependencies": "stdlib only; no installation required, no external API/import integration changed"
+  },
+  "inputs": {
+    "SPEC.md": ".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/context/045a7912d78f4311ef969810cdf12d77d338ca1fb9ccfaae251ef3bb8796f1a7.json",
+    "PLAN.md": ".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/context/e1e972234ffd684b3c5e088cb82cd52a155b911f4843918f84647b640a841473.json",
+    "feedback": ".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/context/88d2aa0b69e1ceee3129dfc2c8414dfa1fde16bc0c5452532decf037b43a89a1.json"
+  },
+  "git": {
+    "branch": "feature/canary-01-0k1",
+    "integration_base_request": "57923dcefab1b47115a9bab26b4a73b8e879f19b",
+    "base_used_B": "513a91f5e0a25adea3a44e74db6fb9b15b230f05",
+    "pre_rebase_head": "d38a432753a341fbc259e6c123c3d46691dcb752",
+    "head": "53f815b2a3a9f8ae24e3a078762ce3fbbd3bedc8",
+    "commits_rebased": 9,
+    "labels_blob": "89b9bb8f13167ce927f4bca8912a103a2941360f",
+    "labels_sha256": "352244d37c6fd4eb0798d0403c51aa7bdc35edad55151feacd861e52dba46a6a",
+    "labels_content": "{\"badge\": \"Ready\", \"button\": \"Reload items\"}"
+  },
+  "checks": [
+    {
+      "id": "AC1",
+      "command": "test \"$(git rev-parse HEAD:labels.json)\" = 89b9bb8f13167ce927f4bca8912a103a2941360f && python3 -I -c 'import json;assert json.load(open(\"labels.json\"))=={\"badge\":\"Ready\",\"button\":\"Reload items\"}'",
+      "exit_code": 0,
+      "result": "pass"
+    },
+    {
+      "id": "AC2",
+      "command": "BASE && git merge-base --is-ancestor \"$B\" HEAD && git merge-base --is-ancestor 513a91f5e0a25adea3a44e74db6fb9b15b230f05 HEAD && git merge-base --is-ancestor 5f22a42dd5e8cbf17890d7444c16ff87186cb09a HEAD",
+      "exit_code": 0,
+      "result": "pass"
+    },
+    {
+      "id": "AC3",
+      "command": "BASE && git merge-base --is-ancestor \"$B\" HEAD && test \"$(git rev-parse \"$B:labels.json\")\" = 14ee0ebf25856d061866cdb79ec0f413f36741b9 && test \"$(git diff --name-only \"$B\" HEAD -- . ':(exclude).agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8')\" = labels.json",
+      "exit_code": 0,
+      "result": "pass",
+      "observed_paths_outside_task_dir": [
+        "labels.json"
+      ]
+    },
+    {
+      "id": "AC4",
+      "command": "BASE && git merge-base --is-ancestor \"$B\" HEAD && test -z \"$(git rev-list --merges \"$B..HEAD\")\" && git fetch origin && git merge-tree --write-tree HEAD origin/main >/dev/null",
+      "exit_code": 0,
+      "result": "pass",
+      "note": "fetch succeeded; merge-tree against origin/main returned 0"
+    },
+    {
+      "id": "AC5",
+      "command": "scripts/agent-check --phase quick",
+      "exit_code": 0,
+      "result": "pass",
+      "note": "syntax = python3 -m py_compile app.py api.py"
+    },
+    {
+      "id": "AC6",
+      "command": "python3 -m unittest discover -s tests -p test_reservations_http.py -k test_ac11_root_page_and_health_unchanged -v",
+      "exit_code": 0,
+      "result": "pass",
+      "note": "Ran 1 test in 0.062s, OK"
+    }
+  ],
+  "full_suite": "Not run: controller Verify only"
+}

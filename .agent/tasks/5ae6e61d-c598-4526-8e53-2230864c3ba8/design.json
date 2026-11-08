@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "required": false,
+  "brief": "Canary 01 · Тривиальная замена статуса: badge Draft→Ready поверх актуального main 513a91f (button Reload items сохраняется)",
+  "reuse": [
+    "app.py",
+    "labels.json",
+    "tests/test_reservations_http.py"
+  ],
+  "reason": "Меняется только текст badge в существующем labels.json; app.py, разметка и стили не меняются, подпись кнопки берётся из main, вывод подписей на странице проверяет существующий тест test_ac11_root_page_and_health_unchanged."
+}
