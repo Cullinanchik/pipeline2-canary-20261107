@@ -1,0 +1,9 @@
+[
+  {
+    "severity": "minor",
+    "title": "Согласовать запрет C5 со стандартным журналом HTTP-запросов",
+    "body": "Триггер: запрос /api/items?min_quantity=synthetic_probe, включая неверное или длинное значение, доходит до self.send_response(status). Последствие: BaseHTTPRequestHandler.send_response вызывает log_request и записывает self.requestline с исходным значением в stderr, нарушая SPEC.md C5 и PLAN.md S2. Доказательства: замороженный PLAN.md, .agent/runtime/a1bc6a82-0eab-4f06-9064-68df9c2c3842/context/fe905978048122e7b02c8eb0cd479b3d225918645b7a9a0cae26dca5c7fc8421.json (content, строки 120–124), сохраняет вызов send_response и не предусматривает изменения журнала; замороженный SPEC.md, .agent/runtime/a1bc6a82-0eab-4f06-9064-68df9c2c3842/context/2ff5c12a75d956811622dea9cd4e9469bbc1900ba746f2ec5670c1418df310b4.json (content, строки 136–137), запрещает логировать исходное значение. Текущий app.py:10 наследует стандартные log_request/log_message; проба без сервера с перехватом stderr подтвердила raw_query_written=True. QuietHandler в PLAN.md:209 отключает журналирование, поэтому предусмотренные HTTP-тесты нарушение не обнаружат. Архитектору следует согласовать C5 с S2 и добавить проверку реального Handler с перехватом журнала при 200 и 400 либо явно обосновать более узкую формулировку C5. Реализация и план оппонентом не менялись.",
+    "file": ".agent/tasks/a1bc6a82-0eab-4f06-9064-68df9c2c3842/PLAN.md",
+    "line": 120
+  }
+]
