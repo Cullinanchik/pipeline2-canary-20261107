@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "class": "mechanical",
+  "risk": "low",
+  "confidence": "high",
+  "reason": "Область и команда оценены по снимку брифа .agent/runtime/a861ab19-2bc1-4d34-a443-43a36dbab280/context/3844d259f364167e198f2f0e5abe54b2e2ca5a37b16788f54e4dd0500b42ec44.json и чтению notes/parallel-a.txt: содержимое Synthetic note A: pending., одно вхождение pending. Разрешена только точная замена одного слова в одном текстовом файле, без логики, зависимостей, миграций, изменений данных приложения или безопасности. Поэтому подходит быстрый маршрут builder + reviewer; planner и opponent для этой однозначной замены не нужны. UAT явно не нужен по брифу. Контекст feedback: .agent/runtime/a861ab19-2bc1-4d34-a443-43a36dbab280/context/1061e58ba9e1f58b697c140e1250dad27eaed1ea298e40384ba08496c8be87cf.json.",
+  "paths": [
+    "notes/parallel-a.txt"
+  ],
+  "criteria": {
+    "AC1": "В notes/parallel-a.txt единственное pending заменено на completed; результат: Synthetic note A: completed. с сохранением завершающего перевода строки.",
+    "AC2": "Другие файлы приложения не меняются; допустима только точная замена pending → completed.",
+    "AC3": "UAT и дизайн не требуются согласно текущему брифу."
+  },
+  "verification": [
+    "git diff --check",
+    "git diff 57923dcefab1b47115a9bab26b4a73b8e879f19b -- notes/parallel-a.txt",
+    "scripts/agent-check --phase quick"
+  ],
+  "needs_uat": false,
+  "members": [
+    {
+      "role": "builder",
+      "scope": "Выполнить только точную замену в notes/parallel-a.txt и проверить AC1–AC2."
+    },
+    {
+      "role": "reviewer",
+      "scope": "Проверить точную замену, отсутствие иных изменений приложения и сохранённые проверки контроллера."
+    }
+  ],
+  "edits": [
+    {
+      "path": "notes/parallel-a.txt",
+      "before": "pending",
+      "after": "completed"
+    }
+  ]
+}
