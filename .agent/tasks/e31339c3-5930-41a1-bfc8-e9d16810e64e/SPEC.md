@@ -3,7 +3,7 @@
 Предварительная область Triage; реализация не выполнялась.
 
 Источник требований: `.agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a.json` (поле content).
-Обратная связь: `.agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/b1689e7f3be7f3a01fd541b6166b42bba006c56d3a229a131f737d01666013c9.json`.
+Обратная связь: `.agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/2b51a0bae7867c48ca9050417c0dedca05d62abdc0e6c26ce14b2531bb78b918.json`.
 
 - **AC1**: GET /api/items читает сохранённые остатки; начальные Notebook=3 и Pencil=5 сохранены.
 - **AC2**: POST /api/reservations создаёт резервацию с item_id, положительным quantity и непустым idempotency_key; некорректные данные отклоняются без записи.

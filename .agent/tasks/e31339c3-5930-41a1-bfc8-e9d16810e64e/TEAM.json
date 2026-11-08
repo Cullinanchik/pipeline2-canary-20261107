@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "class": "feature",
+  "class": "complex",
   "risk": "high",
   "confidence": "high",
   "reason": "Полный маршрут: app.py содержит только GET и ThreadingHTTPServer; api.py возвращает константы без хранилища; tests/test_api.py проверяет только уникальность ID и свежесть значений. Нужны новая логика, SQLite, транзакции и миграция. Точный HTTP-контракт и миграцию определяет planner; неопределённость исключает fast path. Основания: app.py: Handler реализует только do_GET; сервер ThreadingHTTPServer допускает конкурентные запросы. api.py: list_items возвращает Notebook=3 и Pencil=5; SQLite и операции записи отсутствуют. tests/test_api.py: текущие проверки охватывают уникальность ID, неотрицательность начальных остатков и свежесть значений; гонки, rollback и идемпотентность не покрыты. Источник требований: .agent/runtime/e31339c3-5930-41a1-bfc8-e9d16810e64e/context/5d011acd4c4ddbd6c52a4b3f0aa18cd2685920f27d94efbc51cdf46bae8b366a.json.",
