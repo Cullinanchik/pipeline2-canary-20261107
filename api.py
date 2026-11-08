@@ -2,6 +2,7 @@
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from urllib.parse import parse_qs
 
 SCHEMA_VERSION = 1
 BUSY_TIMEOUT_SECONDS = 5.0
@@ -169,3 +170,68 @@ class Inventory:
             if _is_busy(exc):
                 raise _busy_error() from exc
             raise
+
+
+# GET /api/items?min_quantity=N support: pure parsing and filtering helpers.
+MIN_QUANTITY_PARAM = "min_quantity"
+MAX_MIN_QUANTITY = 2**63 - 1
+MIN_QUANTITY_ERRORS = {
+    "duplicate": "min_quantity must be specified at most once",
+    "empty": "min_quantity must not be empty",
+    "too_large": "min_quantity must not exceed 9223372036854775807",
+    "negative": "min_quantity must not be negative",
+    "not_integer": "min_quantity must be a whole number",
+    "invalid": "min_quantity must be a non-negative integer written with digits 0-9",
+}
+
+
+class MinQuantityError(ValueError):
+    """Invalid min_quantity query parameter; the HTTP layer answers 400."""
+
+    def __init__(self, code):
+        message = MIN_QUANTITY_ERRORS[code]
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+    def to_dict(self):
+        return {"error": {"code": self.code, "parameter": MIN_QUANTITY_PARAM, "message": self.message}}
+
+
+def _ascii_digits(text):
+    return bool(text) and text.isascii() and text.isdigit()
+
+
+def _decimal_fraction(value):
+    body = value[1:] if value[:1] in ("+", "-") else value
+    whole, dot, fraction = body.partition(".")
+    if not dot or (whole == "" and fraction == ""):
+        return False
+    return (whole == "" or _ascii_digits(whole)) and (fraction == "" or _ascii_digits(fraction))
+
+
+def parse_min_quantity(query):
+    """Return None when min_quantity is absent, else its int value; raise MinQuantityError."""
+    values = parse_qs(query, keep_blank_values=True).get(MIN_QUANTITY_PARAM)
+    if values is None:
+        return None
+    if len(values) > 1:
+        raise MinQuantityError("duplicate")
+    raw = values[0]
+    if raw == "":
+        raise MinQuantityError("empty")
+    if _ascii_digits(raw):
+        digits = raw.lstrip("0") or "0"
+        if len(digits) > 19 or int(digits) > MAX_MIN_QUANTITY:
+            raise MinQuantityError("too_large")
+        return int(digits)
+    if raw[0] == "-" and _ascii_digits(raw[1:]) and raw[1:].lstrip("0"):
+        raise MinQuantityError("negative")
+    if _decimal_fraction(raw):
+        raise MinQuantityError("not_integer")
+    raise MinQuantityError("invalid")
+
+
+def filter_items(items, min_quantity):
+    """Return a new list with items whose quantity >= min_quantity; input is not modified."""
+    return [item for item in items if item["quantity"] >= min_quantity]

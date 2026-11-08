@@ -1,15 +1,25 @@
 """Synthetic inventory test server; no credentials or external data."""
 import argparse
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import html
 import json
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlsplit
-from api import DEFAULT_DB_PATH, ApiError, Inventory, SchemaVersionError
+from api import (DEFAULT_DB_PATH, ApiError, Inventory, MinQuantityError, SchemaVersionError,
+                 filter_items, parse_min_quantity)
 
 MAX_BODY_BYTES = 4096
 REQUEST_TIMEOUT_SECONDS = 10.0
+
+
+def redact_request_line(requestline):
+    """Return the request line cut at the first '?' or '#', so access logs never contain query values."""
+    cuts = [index for index in (requestline.find("?"), requestline.find("#")) if index != -1]
+    if not cuts:
+        return requestline
+    return requestline[:min(cuts)] + " [query redacted]"
 
 
 class InventoryServer(ThreadingHTTPServer):
@@ -51,6 +61,11 @@ class Handler(BaseHTTPRequestHandler):
     def setup(self):
         self.request.settimeout(REQUEST_TIMEOUT_SECONDS)
         super().setup()
+
+    def log_request(self, code="-", size="-"):
+        if isinstance(code, HTTPStatus):
+            code = code.value
+        self.log_message('"%s" %s %s', redact_request_line(self.requestline), str(code), str(size))
 
     def _send_json(self, status, payload, headers=()):
         body = json.dumps(payload).encode()
@@ -104,12 +119,21 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(status, reservation)
 
     def do_GET(self):
-        path = urlsplit(self.path).path
+        parts = urlsplit(self.path)
+        path = parts.path
         if path == "/health":
             body, content = b'{"ok": true}', "application/json"
         elif path == "/api/items":
             try:
-                self._send_json(200, self.server.inventory.list_items())
+                min_quantity = parse_min_quantity(parts.query)
+            except MinQuantityError as err:
+                self._send_json(400, err.to_dict())
+                return
+            try:
+                items = self.server.inventory.list_items()
+                if min_quantity is not None:
+                    items = filter_items(items, min_quantity)
+                self._send_json(200, items)
             except ApiError as err:
                 self._send_api_error(err)
             except Exception as exc:

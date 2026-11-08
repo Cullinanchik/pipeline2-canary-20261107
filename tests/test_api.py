@@ -1,4 +1,10 @@
 import ast
+import contextlib
+import copy
+import html
+import http.client
+import io
+import json
 import os
 import sqlite3
 import subprocess
@@ -8,14 +14,31 @@ import threading
 import unittest
 from collections import Counter
 from contextlib import closing
+from http import HTTPStatus
 from pathlib import Path
 from unittest import mock
+from urllib.parse import parse_qs
 import api
+import app
 from api import ApiError, Inventory, SchemaVersionError
+from api import MAX_MIN_QUANTITY, MinQuantityError, filter_items, parse_min_quantity
+from app import Handler, make_server, redact_request_line
 
 ROOT = Path(__file__).resolve().parents[1]
 INITIAL = [{'id': 1, 'name': 'Notebook', 'quantity': 3}, {'id': 2, 'name': 'Pencil', 'quantity': 5}]
 SEED = {1: 3, 2: 5}
+CATALOG = INITIAL
+MESSAGES = {
+    'duplicate': 'min_quantity must be specified at most once',
+    'empty': 'min_quantity must not be empty',
+    'too_large': 'min_quantity must not exceed 9223372036854775807',
+    'negative': 'min_quantity must not be negative',
+    'not_integer': 'min_quantity must be a whole number',
+    'invalid': 'min_quantity must be a non-negative integer written with digits 0-9',
+}
+PROBE = 'synthetic_probe'
+# Тексты страницы живут в labels.json и могут меняться другими задачами: сравниваем с ними, а не с литералом.
+PAGE_LABELS = json.loads((ROOT / 'labels.json').read_text())
 
 
 class StorageTestCase(unittest.TestCase):
@@ -298,3 +321,332 @@ os._exit(1)
         self.assertEqual(r.returncode, 0)
         self.assertEqual(self.stock()[2], 3)
         self.assertEqual(self.inv.reserve(p)[0], 200)
+
+
+class FilterItemsTests(unittest.TestCase):
+    SAMPLE = [
+        {'id': 1, 'quantity': 0},
+        {'id': 2, 'quantity': 2},
+        {'id': 3, 'quantity': 3},
+        {'id': 4, 'quantity': 3},
+        {'id': 5, 'quantity': 10},
+    ]
+
+    def test_boundary_is_inclusive_and_order_preserved(self):
+        self.assertEqual([item['id'] for item in filter_items(self.SAMPLE, 3)], [3, 4, 5])
+
+    def test_zero_returns_all(self):
+        self.assertEqual([item['id'] for item in filter_items(self.SAMPLE, 0)], [1, 2, 3, 4, 5])
+
+    def test_threshold_above_maximum_returns_empty(self):
+        for threshold in (11, MAX_MIN_QUANTITY):
+            with self.subTest(threshold=threshold):
+                self.assertEqual(filter_items(self.SAMPLE, threshold), [])
+
+    def test_empty_input_returns_empty(self):
+        self.assertEqual(filter_items([], 0), [])
+
+    def test_input_not_mutated_and_result_is_new_list(self):
+        before = copy.deepcopy(self.SAMPLE)
+        result = filter_items(self.SAMPLE, 0)
+        self.assertIsNot(result, self.SAMPLE)
+        result.append({})
+        self.assertEqual(self.SAMPLE, before)
+
+
+class ParseMinQuantityTests(unittest.TestCase):
+    def test_absent_returns_none(self):
+        for query in ('', '&', '=5', 'foo=1', 'min_qty=3', 'MIN_QUANTITY=3'):
+            with self.subTest(query=query):
+                self.assertIsNone(parse_min_quantity(query))
+
+    def test_valid_values(self):
+        cases = [
+            ('min_quantity=0', 0),
+            ('min_quantity=00', 0),
+            ('min_quantity=3', 3),
+            ('min_quantity=007', 7),
+            ('min_quantity=9223372036854775807', MAX_MIN_QUANTITY),
+            ('min_quantity=' + '0' * 5000 + '1', 1),
+            ('min_quantity=4&foo=bar', 4),
+            ('foo=&min_quantity=4', 4),
+            ('min%5Fquantity=4', 4),
+        ]
+        for query, expected in cases:
+            with self.subTest(query=query):
+                result = parse_min_quantity(query)
+                self.assertEqual(result, expected)
+                self.assertIs(type(result), int)
+
+    def test_error_codes(self):
+        cases = [
+            ('min_quantity=', 'empty'),
+            ('min_quantity', 'empty'),
+            ('min_quantity=9223372036854775808', 'too_large'),
+            ('min_quantity=99999999999999999999', 'too_large'),
+            ('min_quantity=1' + '0' * 5000, 'too_large'),
+            ('min_quantity=-1', 'negative'),
+            ('min_quantity=-05', 'negative'),
+            ('min_quantity=2.5', 'not_integer'),
+            ('min_quantity=3.0', 'not_integer'),
+            ('min_quantity=.5', 'not_integer'),
+            ('min_quantity=5.', 'not_integer'),
+            ('min_quantity=-2.5', 'not_integer'),
+            ('min_quantity=%2B2.5', 'not_integer'),
+            ('min_quantity=-0', 'invalid'),
+            ('min_quantity=--1', 'invalid'),
+            ('min_quantity=abc', 'invalid'),
+            ('min_quantity=%2B1', 'invalid'),
+            ('min_quantity=+1', 'invalid'),
+            ('min_quantity=1e3', 'invalid'),
+            ('min_quantity=%D9%A1', 'invalid'),
+            ('min_quantity=%C2%B2', 'invalid'),
+            ('min_quantity=1%0A', 'invalid'),
+            ('min_quantity=1_000', 'invalid'),
+            ('min_quantity=0x10', 'invalid'),
+            ('min_quantity=%FF', 'invalid'),
+            ('min_quantity=1;min_quantity=2', 'invalid'),
+            ('min_quantity=-', 'invalid'),
+            ('min_quantity=.', 'invalid'),
+            ('min_quantity=%20', 'invalid'),
+            ('min_quantity=3&min_quantity=3', 'duplicate'),
+            ('min_quantity=3&min%5Fquantity=4', 'duplicate'),
+            ('min_quantity=3&min_quantity=', 'duplicate'),
+        ]
+        for query, code in cases:
+            with self.subTest(query=query, code=code):
+                with self.assertRaises(MinQuantityError) as ctx:
+                    parse_min_quantity(query)
+                self.assertEqual(ctx.exception.code, code)
+
+    def test_error_messages_and_payload(self):
+        for code in MESSAGES:
+            with self.subTest(code=code):
+                err = MinQuantityError(code)
+                self.assertIsInstance(err, ValueError)
+                self.assertEqual(str(err), MESSAGES[code])
+                self.assertEqual(err.message, MESSAGES[code])
+                self.assertEqual(err.to_dict(), {
+                    'error': {'code': code, 'parameter': 'min_quantity', 'message': MESSAGES[code]},
+                })
+
+    def test_parse_qs_semantics_probe(self):
+        cases = [
+            ('min_quantity=', {'min_quantity': ['']}),
+            ('min_quantity', {'min_quantity': ['']}),
+            ('min_quantity=+1', {'min_quantity': [' 1']}),
+            ('min_quantity=1;min_quantity=2', {'min_quantity': ['1;min_quantity=2']}),
+            ('min_quantity=3&min%5Fquantity=4', {'min_quantity': ['3', '4']}),
+        ]
+        for query, expected in cases:
+            with self.subTest(query=query):
+                self.assertEqual(parse_qs(query, keep_blank_values=True), expected)
+
+
+class CatalogHTTPTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        silence = mock.patch.object(Handler, 'log_message', lambda *args, **kwargs: None)
+        silence.start()
+        cls.addClassCleanup(silence.stop)
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.db = os.path.join(cls.tmp.name, 'inventory.sqlite3')
+        cls.server = make_server('127.0.0.1', 0, cls.db)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, kwargs={'poll_interval': 0.05}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(10)
+
+    def get(self, target):
+        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_address[1], timeout=10)
+        try:
+            connection.request('GET', target)
+            response = connection.getresponse()
+            body = response.read()
+            return (response.status, response.getheader('Content-Type'),
+                    response.getheader('Content-Length'), body)
+        finally:
+            connection.close()
+
+    def test_no_filter_returns_full_catalog(self):
+        for target in ('/api/items', '/api/items?'):
+            with self.subTest(target=target):
+                status, content_type, content_length, body = self.get(target)
+                self.assertEqual(status, 200)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(int(content_length), len(body))
+                self.assertEqual(body, json.dumps(Inventory(self.db).list_items()).encode())
+                self.assertEqual(json.loads(body), CATALOG)
+
+    def test_filter_results(self):
+        cases = [
+            ('0', [1, 2]),
+            ('3', [1, 2]),
+            ('4', [2]),
+            ('5', [2]),
+            ('004', [2]),
+            ('6', []),
+            ('9223372036854775807', []),
+        ]
+        for value, ids in cases:
+            with self.subTest(value=value):
+                status, content_type, content_length, body = self.get('/api/items?min_quantity=' + value)
+                self.assertEqual(status, 200)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(int(content_length), len(body))
+                self.assertEqual(json.loads(body), [item for item in CATALOG if item['id'] in ids])
+                if value == '0':
+                    self.assertEqual(body, json.dumps(Inventory(self.db).list_items()).encode())
+
+    def test_invalid_values_return_400_json(self):
+        cases = [
+            ('?min_quantity=', 'empty'),
+            ('?min_quantity', 'empty'),
+            ('?min_quantity=-1', 'negative'),
+            ('?min_quantity=2.5', 'not_integer'),
+            ('?min_quantity=3.0', 'not_integer'),
+            ('?min_quantity=abc', 'invalid'),
+            ('?min_quantity=%2B1', 'invalid'),
+            ('?min_quantity=+1', 'invalid'),
+            ('?min_quantity=%D9%A1', 'invalid'),
+            ('?min_quantity=1%0A', 'invalid'),
+            ('?min_quantity=9223372036854775808', 'too_large'),
+            ('?min_quantity=3&min_quantity=3', 'duplicate'),
+            ('?min_quantity=3&min%5Fquantity=4', 'duplicate'),
+            ('?min_quantity=1;min_quantity=2', 'invalid'),
+        ]
+        for suffix, code in cases:
+            with self.subTest(target='/api/items' + suffix):
+                status, content_type, content_length, body = self.get('/api/items' + suffix)
+                self.assertEqual(status, 400)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(int(content_length), len(body))
+                self.assertEqual(json.loads(body), {
+                    'error': {'code': code, 'parameter': 'min_quantity', 'message': MESSAGES[code]},
+                })
+
+    def test_unknown_parameters_are_ignored(self):
+        for target in ('/api/items?min_qty=3', '/api/items?MIN_QUANTITY=4', '/api/items?foo=bar'):
+            with self.subTest(target=target):
+                status, content_type, content_length, body = self.get(target)
+                self.assertEqual(status, 200)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(json.loads(body), CATALOG)
+        for target in ('/api/items?foo=bar&min_quantity=4', '/api/items?min_quantity=4&foo='):
+            with self.subTest(target=target):
+                status, content_type, content_length, body = self.get(target)
+                self.assertEqual(status, 200)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(json.loads(body), [CATALOG[1]])
+
+    def test_other_routes_unchanged(self):
+        page_status, page_type, page_length, page_body = self.get('/')
+        filtered_status, filtered_type, filtered_length, filtered_body = self.get('/?min_quantity=abc')
+        self.assertEqual(page_status, 200)
+        self.assertEqual(filtered_status, 200)
+        self.assertEqual(page_type, 'text/html; charset=utf-8')
+        self.assertEqual(filtered_type, 'text/html; charset=utf-8')
+        self.assertEqual(int(page_length), len(page_body))
+        self.assertIn(b'<h1>Inventory canary</h1>', page_body)
+        self.assertIn(b'Status: ' + html.escape(PAGE_LABELS['badge']).encode(), page_body)
+        self.assertIn(b'>' + html.escape(PAGE_LABELS['button']).encode() + b'</button>', page_body)
+        self.assertEqual(page_body, filtered_body)
+        for target in ('/health', '/health?min_quantity=-1'):
+            with self.subTest(target=target):
+                status, content_type, content_length, body = self.get(target)
+                self.assertEqual(status, 200)
+                self.assertEqual(content_type, 'application/json')
+                self.assertEqual(body, b'{"ok": true}')
+        for target in ('/missing', '/api/items/', '/api/items/?min_quantity=1'):
+            with self.subTest(target=target):
+                status, content_type, content_length, body = self.get(target)
+                self.assertEqual(status, 404)
+
+
+class RedactRequestLineTests(unittest.TestCase):
+    def test_redact_request_line(self):
+        cases = [
+            ('GET /api/items?min_quantity=synthetic_probe HTTP/1.1', 'GET /api/items [query redacted]'),
+            ('GET /api/items HTTP/1.1', 'GET /api/items HTTP/1.1'),
+            ('GET /api/items#min_quantity=synthetic_probe HTTP/1.1', 'GET /api/items [query redacted]'),
+            ('GET /api/items?min_quantity=1 2 HTTP/1.1', 'GET /api/items [query redacted]'),
+            ('GET /?a#b HTTP/1.1', 'GET / [query redacted]'),
+            ('GET /api/items? HTTP/1.1', 'GET /api/items [query redacted]'),
+            ('', ''),
+        ]
+        for line, expected in cases:
+            with self.subTest(line=line):
+                self.assertEqual(redact_request_line(line), expected)
+
+    def test_log_request_redacts_query(self):
+        handler = object.__new__(Handler)
+        handler.requestline = 'GET /api/items?min_quantity=' + PROBE + ' HTTP/1.1'
+        handler.client_address = ('127.0.0.1', 0)
+        for code, text in ((HTTPStatus.BAD_REQUEST, '400'), (200, '200'), ('-', '-')):
+            with self.subTest(code=code):
+                captured = io.StringIO()
+                with contextlib.redirect_stderr(captured):
+                    handler.log_request(code)
+                log = captured.getvalue()
+                self.assertIn('"GET /api/items [query redacted]" ' + text + ' -', log)
+                self.assertNotIn(PROBE, log)
+                self.assertNotIn('min_quantity', log)
+
+
+class RequestLogHTTPTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.db = os.path.join(cls.tmp.name, 'inventory.sqlite3')
+        cls.server = make_server('127.0.0.1', 0, cls.db)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, kwargs={'poll_interval': 0.05}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(10)
+
+    def get_logged(self, target):
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            connection = http.client.HTTPConnection('127.0.0.1', self.server.server_address[1], timeout=10)
+            try:
+                connection.request('GET', target)
+                response = connection.getresponse()
+                body = response.read()
+                status = response.status
+            finally:
+                connection.close()
+        return status, body, captured.getvalue()
+
+    def test_access_log_omits_query(self):
+        cases = [
+            ('/api/items?min_quantity=' + PROBE, 400, '/api/items', [PROBE]),
+            ('/api/items?min_quantity=' + 'x' * 5000, 400, '/api/items', ['x' * 64]),
+            ('/api/items?min_quantity=' + '0' * 64 + '4' + '&note=' + PROBE, 200, '/api/items', ['0' * 64, PROBE]),
+            ('/health?min_quantity=' + PROBE, 200, '/health', [PROBE]),
+            ('/missing?min_quantity=' + PROBE, 404, '/missing', [PROBE]),
+        ]
+        for target, expected_status, path, secrets in cases:
+            with self.subTest(path=path, status=expected_status):
+                status, body, log = self.get_logged(target)
+                self.assertEqual(status, expected_status)
+                self.assertIn('"GET ' + path + ' [query redacted]" ' + str(expected_status) + ' -', log)
+                self.assertNotIn('min_quantity', log)
+                for secret in secrets:
+                    self.assertNotIn(secret, log)
+                    self.assertNotIn(secret.encode(), body)
+
+    def test_access_log_without_query_unchanged(self):
+        status, body, log = self.get_logged('/api/items')
+        self.assertEqual(status, 200)
+        self.assertIn('"GET /api/items HTTP/1.1" 200 -', log)
+        self.assertNotIn('[query redacted]', log)
