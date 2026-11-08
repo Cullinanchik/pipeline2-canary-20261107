@@ -1,13 +1,14 @@
 {
   "version": 1,
   "needs_uat": false,
-  "uat_reason": "BRIEF прямо исключает ручной UAT. Видимое изменение — одно слово статуса на странице (Status: Ready); подпись кнопки задача не меняет, а сохраняет из базы интеграции B; код отображения не меняется; байты labels.json проверяются автоматически точным сравнением blob (AC1).",
+  "uat_reason": "BRIEF прямо исключает ручной UAT. Видимое изменение — одно слово статуса на странице (Status: Ready); подпись кнопки не меняется, а сохраняется из базы интеграции B; код страницы не меняется; байты labels.json проверяются точным blob (AC1), а вывод подписей на странице / — автоматическим тестом test_ac11_root_page_and_health_unchanged (AC6 и полный набор в Verify).",
   "requirements": {
     "R1": "В итоговом labels.json badge = Ready, получено одной точной заменой Draft→Ready в версии файла из базы интеграции B.",
-    "R2": "Выбранная база B и все upstream-изменения main до B (button = Reload items из 5f22a42, notes/parallel-a.txt из fdbf1e4) содержатся в HEAD: B — предок HEAD.",
+    "R2": "Выбранная база B и все upstream-изменения main до B (button = Reload items из 5f22a42, notes/parallel-a.txt, резервирование из 3018963, notes/parallel-b.txt) содержатся в HEAD: B — предок HEAD.",
     "R3": "Ветка feature/canary-01-0k1 линейно перебазирована на B (нет merge-коммитов в B..HEAD) и отдельно сливается с текущим origin/main без конфликтов.",
     "R4": "Относительно B меняются только labels.json (строка badge) и документы задачи в .agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8/.",
-    "R5": "Проверки проекта проходят: quick у исполнителя, полный набор только в Verify контроллера."
+    "R5": "Проверки проекта проходят: quick у исполнителя, полный набор только в Verify контроллера.",
+    "R6": "Страница / на результате показывает подписи из labels.json (Status: Ready, кнопка Reload items) — проверяется именованным тестом test_ac11_root_page_and_health_unchanged."
   },
   "criteria": {
     "AC1": {
@@ -17,42 +18,52 @@
     },
     "AC2": {
       "requirement": "R2",
-      "expected": "Выбранная по D1 база B (фрагмент BASE из PLAN.md), P = fdbf1e4 и 5f22a42 являются предками HEAD; код выхода 0.",
-      "verification": "P=fdbf1e4203a8770c7148668e14de48a79b65dad5 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && git merge-base --is-ancestor fdbf1e4203a8770c7148668e14de48a79b65dad5 HEAD && git merge-base --is-ancestor 5f22a42dd5e8cbf17890d7444c16ff87186cb09a HEAD"
+      "expected": "Выбранная по D1 база B (фрагмент BASE из PLAN.md), P = 513a91f и 5f22a42 являются предками HEAD; код выхода 0.",
+      "verification": "P=513a91f5e0a25adea3a44e74db6fb9b15b230f05 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && git merge-base --is-ancestor 513a91f5e0a25adea3a44e74db6fb9b15b230f05 HEAD && git merge-base --is-ancestor 5f22a42dd5e8cbf17890d7444c16ff87186cb09a HEAD"
     },
     "AC3": {
       "requirement": "R4",
       "expected": "B — предок HEAD, B:labels.json = upstream-blob 14ee0ebf25856d061866cdb79ec0f413f36741b9, а вне каталога задачи от B отличается только labels.json; код выхода 0.",
-      "verification": "P=fdbf1e4203a8770c7148668e14de48a79b65dad5 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && test \"$(git rev-parse \"$B:labels.json\")\" = 14ee0ebf25856d061866cdb79ec0f413f36741b9 && test \"$(git diff --name-only \"$B\" HEAD -- . ':(exclude).agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8')\" = labels.json"
+      "verification": "P=513a91f5e0a25adea3a44e74db6fb9b15b230f05 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && test \"$(git rev-parse \"$B:labels.json\")\" = 14ee0ebf25856d061866cdb79ec0f413f36741b9 && test \"$(git diff --name-only \"$B\" HEAD -- . ':(exclude).agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8')\" = labels.json"
     },
     "AC4": {
       "requirement": "R3",
       "expected": "B — предок HEAD, в B..HEAD нет merge-коммитов, и отдельно git merge-tree HEAD origin/main после fetch без конфликтов; код выхода 0 (сбой fetch = «не проверено»).",
-      "verification": "P=fdbf1e4203a8770c7148668e14de48a79b65dad5 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && test -z \"$(git rev-list --merges \"$B..HEAD\")\" && git fetch origin && git merge-tree --write-tree HEAD origin/main >/dev/null"
+      "verification": "P=513a91f5e0a25adea3a44e74db6fb9b15b230f05 && I=$(python3 -I -c 'import json;print(json.load(open(\".agent/runtime/5ae6e61d-c598-4526-8e53-2230864c3ba8/request.json\")).get(\"integration_base\") or \"\")') && if [ -z \"$I\" ] || git merge-base --is-ancestor \"$I\" \"$P\" 2>/dev/null; then B=$P; elif git merge-base --is-ancestor \"$P\" \"$I\" 2>/dev/null; then B=$(git rev-parse --verify \"$I^{commit}\"); else echo \"integration_base $I diverges from $P\" >&2; false; fi && git merge-base --is-ancestor \"$B\" HEAD && test -z \"$(git rev-list --merges \"$B..HEAD\")\" && git fetch origin && git merge-tree --write-tree HEAD origin/main >/dev/null"
     },
     "AC5": {
       "requirement": "R5",
       "expected": "scripts/agent-check --phase quick завершается с кодом 0; полный unittest-набор ok в Verify контроллера.",
       "verification": "scripts/agent-check --phase quick (исполнитель); python3 -m unittest discover -s tests -v (только Verify контроллера)"
+    },
+    "AC6": {
+      "requirement": "R6",
+      "expected": "Именованный тест HttpTestCase.test_ac11_root_page_and_health_unchanged из B: ровно 1 тест, OK, код выхода 0 (GET / содержит Ready и Reload items, /health ok).",
+      "verification": "out=$(python3 -m unittest discover -s tests -p test_reservations_http.py -k test_ac11_root_page_and_health_unchanged -v 2>&1); rc=$?; printf '%s\\n' \"$out\"; test $rc -eq 0 && printf '%s\\n' \"$out\" | grep -q '^Ran 1 test'"
     }
   },
   "decisions": [
-    "D1: База интеграции B — функция P = fdbf1e4203a8770c7148668e14de48a79b65dad5 и request.integration_base (I): B = P, если I пуст или предок P; B = I, если I потомок P и B:labels.json = blob 14ee0eb; иначе остановка и --amendment. Реализовано фрагментом BASE в PLAN.md.",
-    "D2: button = Reload items: правило BRIEF «остальные значения не менять» применяется к ветке слияния; 5f22a42 уже слит в main, его откат изменил бы чужое значение. Заголовок коммита не считается согласованием владельца (owner_answers=null) и в обосновании не используется. Вариант «оставить Refresh» отвергнут.",
+    "D1: База интеграции B — функция P = 513a91f5e0a25adea3a44e74db6fb9b15b230f05 и request.integration_base (I): B = P, если I пуст или предок P; B = I, если I потомок P и B:labels.json = blob 14ee0eb; иначе остановка и --amendment. Реализовано фрагментом BASE в PLAN.md.",
+    "D2: button = Reload items: правило BRIEF «остальные значения не менять» применяется к ветке слияния; 5f22a42 уже в main, его откат изменил бы чужое значение. Согласования владельца по кнопке нет (owner_answers=null), оно не используется. Вариант «оставить Refresh» отвергнут.",
     "D3: Интеграция через git rebase на B (линейная история, B предок HEAD), не merge-коммит; push переписанной ветки выполняет контроллер.",
     "D4: Конфликт разрешается пересозданием labels.json из B:labels.json одной побайтовой заменой Draft→Ready с проверкой единственного вхождения; ручная правка маркеров и -X ours/theirs запрещены.",
-    "D5: Новые тесты не добавляются: область BRIEF — одно значение; корректность доказывается точным blob, предком B, списком путей от B, линейностью от B и merge-tree с текущим main.",
-    "D6: needs_uat=false: BRIEF прямо исключает ручной UAT; подпись кнопки сохраняется из B без изменений; код отображения не меняется; байты labels.json проверяются автоматически (AC1).",
-    "D7: Критерии TEAM.json заменены: TEAM AC1 → AC1, TEAM AC2 → AC2+AC3; TEAM.json не редактируется.",
+    "D5: Новые тесты не добавляются: область BRIEF — одно значение; существующий тест test_ac11 из B уже проверяет вывод подписей на странице.",
+    "D6: needs_uat=false: BRIEF прямо исключает ручной UAT; кнопка сохраняется из B; код страницы не меняется; байты labels.json проверяются AC1, вывод на странице — автоматическим тестом AC6 и полным набором в Verify.",
+    "D7: Критерии TEAM.json заменены: TEAM AC1 → AC1, TEAM AC2 → AC2+AC3; устаревшие request.team.verification (git diff 2561257… -- labels.json) и упоминание Refresh в team.reason/TEAM.json не используются; TEAM.json не редактируется.",
     "D8: Маршрут standard: механическая правка плюс rebase на новую базу с разрешением конфликта по правилу.",
-    "D9: AC2–AC4 привязаны к выбранной B (фрагмент BASE), а не к git merge-base HEAD origin/main; совместимость с текущим main проверяется отдельно в AC4; исполнитель записывает B в отчёт, ревьюер вычисляет B тем же фрагментом."
+    "D9: AC2–AC4 привязаны к выбранной B (фрагмент BASE), а не к git merge-base HEAD origin/main; совместимость с текущим main проверяется отдельно в AC4; исполнитель записывает B в отчёт, ревьюер вычисляет B тем же фрагментом.",
+    "D10: P обновлён с fdbf1e4 на 513a91f: Verify проверяет код, который реально в main (app.py переписан в 3018963), и включает тест страницы test_ac11; разрыв с main на момент плана — ноль. Альтернатива «B = живой origin/main в момент работы» отвергнута: ревьюер не вычислил бы ту же B из контракта.",
+    "D11: S1 начинается с git rebase --abort, если предыдущая попытка оставила незавершённый rebase, и требует ветку feature/canary-01-0k1; ссылка ветки до окончания rebase не меняется, S2 воспроизводим.",
+    "D12: AC6 — один именованный тест test_ac11_root_page_and_health_unchanged у исполнителя (не полный набор): ранняя автоматическая проверка видимого результата."
   ],
   "risks": [
-    "Main продвинется после выбора B и снова изменит labels.json — S1 остановит работу с amendment, либо AC4/контроллер обнаружит конфликт и запустит Fix с новой базой по правилу D1.",
-    "Rebase на неверную базу: на предка B ловит AC2 (B не предок HEAD), на потомка B (живой origin/main) ловит AC3 (лишние пути от B); ручная правка маркеров ловится AC1 (точный blob).",
+    "Main продвинется после выбора B без изменения labels.json — AC4 остаётся зелёным, к слиянию ветку подтягивает цикл контроллера «rebase и свежий Verify»; с изменением labels.json — остановка S1/AC4 и повтор по D1.",
+    "Rebase на неверную базу: на предка B ловят AC2–AC4 (проверено для результата поверх fdbf1e4), на потомка B (живой origin/main) ловит AC3 (лишние пути от B); ручная правка маркеров ловится AC1 (точный blob).",
     "Контроллер перезакрепит базу между Work и Review — у ревьюера BASE даст новую B, AC2/AC3 провалятся; это верный сигнал устаревшего результата и Fix с новой базой.",
-    "Устаревший AC2 «button остаётся Refresh» в TEAM.json может ввести ревьюера в заблуждение — SPEC D7 прямо заменяет критерии.",
-    "Переписанная история требует принудительной публикации ветки — это действие контроллера; исходное состояние сохранено в origin/feature/canary-01-0k1 и в PRE для отката."
+    "Устаревшие AC2 и verification в TEAM.json и request.team могут ввести ревьюера в заблуждение — SPEC I2 и D7 прямо заменяют критерии.",
+    "Повторное прерывание сессии посреди rebase — S1 п. 1 отменяет незавершённый rebase и возвращает ветку к исходному состоянию (D11).",
+    "AC6 поднимает тестовый сервер на 127.0.0.1; любой ненулевой код AC6, включая сбой окружения, — провал с выводом, откат и amendment, а не «пройдено».",
+    "Переписанная история требует принудительной публикации ветки — это действие контроллера; откат через PRE и git reflog (origin/feature/canary-01-0k1 = 0afc426 устарел и для отката не используется)."
   ],
   "steps": [
     {
@@ -60,12 +71,12 @@
       "files": [
         "labels.json"
       ],
-      "change": "Только чтение: git fetch origin (сбой допустим); фрагментом BASE выбрать B по D1; проверить P существует, B:labels.json = blob 14ee0eb, чистое дерево; записать B и PRE. Ненулевой код → --amendment.",
+      "change": "Если rebase не завершён — git rebase --abort; проверить ветку feature/canary-01-0k1; git fetch origin (сбой допустим); фрагментом BASE выбрать B по D1; проверить P существует, B:labels.json = blob 14ee0eb, чистое дерево; записать B и PRE. Ненулевой код → --amendment.",
       "criteria": [
         "AC2"
       ],
       "depends_on": [],
-      "verification": "команда S1 из PLAN.md печатает B=<sha> и PRE=<sha> и завершается с кодом 0; сейчас ожидается B=fdbf1e4203a8770c7148668e14de48a79b65dad5"
+      "verification": "команды S1 из PLAN.md печатают B=<sha> и PRE=<sha> и завершаются с кодом 0; сейчас ожидается B=513a91f5e0a25adea3a44e74db6fb9b15b230f05"
     },
     {
       "id": "S2",
@@ -88,25 +99,26 @@
       "files": [
         "labels.json"
       ],
-      "change": "Без правок: проверить, что BASE даёт ту же B, что в S1; выполнить команды AC1–AC4 из criteria и scripts/agent-check --phase quick; полный набор тестов не запускать.",
+      "change": "Без правок: проверить, что BASE даёт ту же B, что в S1; выполнить команды AC1–AC4, AC6 из criteria и scripts/agent-check --phase quick (AC5); полный набор тестов не запускать.",
       "criteria": [
         "AC1",
         "AC2",
         "AC3",
         "AC4",
-        "AC5"
+        "AC5",
+        "AC6"
       ],
       "depends_on": [
         "S2"
       ],
-      "verification": "BASE даёт B из S1; все команды AC1–AC4 и scripts/agent-check --phase quick завершаются с кодом 0"
+      "verification": "BASE даёт B из S1; все команды AC1–AC4, AC6 и scripts/agent-check --phase quick завершаются с кодом 0"
     },
     {
       "id": "S4",
       "files": [
         ".agent/tasks/5ae6e61d-c598-4526-8e53-2230864c3ba8"
       ],
-      "change": "Записать отчёт владельцу по схеме request.owner_reporting исполнителя (B, PRE, новый HEAD, коды выхода AC1–AC5, без неподтверждённых согласований) и выполнить scripts/pipeline-report --task 5ae6e61d-c598-4526-8e53-2230864c3ba8 с требуемыми флагами; push/merge/step_complete не выполнять.",
+      "change": "Записать отчёт владельцу по схеме request.owner_reporting исполнителя (B, PRE, новый HEAD, коды выхода AC1–AC6, без неподтверждённых согласований) и выполнить scripts/pipeline-report --task 5ae6e61d-c598-4526-8e53-2230864c3ba8 с требуемыми флагами; push/merge/step_complete не выполнять.",
       "criteria": [
         "AC5"
       ],
